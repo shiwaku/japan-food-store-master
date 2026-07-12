@@ -31,7 +31,15 @@ body { font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", system-ui, sans
 .osm { background: #e8590c; }
 .ovt { background: #1c7ed6; }
 .note { font-size: 11px; color: #666; margin-top: 10px; }
-select { font-size: 13px; padding: 3px 4px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
+
+/* カテゴリ行はラベルを上、selectを下段の全幅に。selectがパネル幅を超えないようにする */
+.row-cat { display: block; margin: 6px 0; }
+.row-cat > span { display: block; margin-bottom: 4px; }
+select {
+  font-size: 13px; padding: 4px 6px; border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.2); background: #fff;
+  width: 100%; max-width: 100%; box-sizing: border-box;
+}
 
 /* パネルを閉じた状態 */
 #panel.collapsed { transform: translateX(-115%); opacity: 0; pointer-events: none; }
