@@ -6,6 +6,8 @@ output/
 *.pmtiles
 *.geojson
 !docs/*.json
+# GitHub Pages公開用のPMTilesはコミットする
+!docs/*.pmtiles
 
 # Python
 __pycache__/

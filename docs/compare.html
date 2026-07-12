@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>食品店POI比較: OSM vs Overture</title>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/pmtiles@3.2.1/dist/pmtiles.js"></script>
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; }
+  #map { position:absolute; inset:0; }
+  #panel {
+    position:absolute; top:10px; left:10px; z-index:1; background:rgba(255,255,255,.95);
+    padding:14px 16px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,.2);
+    max-width:280px; font-size:13px; line-height:1.5;
+  }
+  #panel h1 { font-size:15px; margin:0 0 8px; }
+  .row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+  .row input { width:16px; height:16px; }
+  .sw { width:14px; height:14px; border-radius:50%; display:inline-block; }
+  .osm { background:#e8590c; }
+  .ovt { background:#1c7ed6; }
+  .note { font-size:11px; color:#666; margin-top:8px; }
+  select { font-size:12px; padding:2px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <h1>食品店POI比較</h1>
+  <div class="row">
+    <input type="checkbox" id="t-ovt" checked>
+    <span class="sw ovt"></span>
+    <label for="t-ovt">Overture (<span id="c-ovt">…</span>)</label>
+  </div>
+  <div class="row">
+    <input type="checkbox" id="t-osm" checked>
+    <span class="sw osm"></span>
+    <label for="t-osm">OSM (<span id="c-osm">…</span>)</label>
+  </div>
+  <div class="row">
+    カテゴリ:
+    <select id="cat">
+      <option value="all">すべて</option>
+      <option value="super">スーパー</option>
+      <option value="conv">コンビニ</option>
+      <option value="drug">ドラッグストア</option>
+      <option value="grocery">食料品店</option>
+      <option value="fresh">生鮮専門店(青果・精肉・鮮魚)・直売所</option>
+      <option value="discount">ディスカウント</option>
+      <option value="dept">百貨店</option>
+    </select>
+  </div>
+  <div class="note">
+    農水省「食料品アクセス」定義準拠（調剤薬局を除外）。Overture 194,879件 / OSM 88,964件。
+    地方部ほどOvertureの取りこぼしが多い（詳細は検証md）。重なりを見るには片方だけ表示。クリックで店名表示。
+  </div>
+</div>
+<script>
+const proto = new pmtiles.Protocol();
+maplibregl.addProtocol("pmtiles", proto.tile);
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: {
+    version: 8,
+    glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+    sources: {
+      base: {
+        type: "raster",
+        tiles: ["https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"],
+        tileSize: 256,
+        attribution: "地理院タイル"
+      }
+    },
+    layers: [{ id: "base", type: "raster", source: "base" }]
+  },
+  center: [138.5, 36.5],
+  zoom: 5,
+  hash: true
+});
+
+map.addControl(new maplibregl.NavigationControl());
+
+map.on("load", () => {
+  map.addSource("ovt", { type: "vector", url: "pmtiles://./overture_food.pmtiles" });
+  map.addSource("osm", { type: "vector", url: "pmtiles://./osm_food.pmtiles" });
+
+  map.addLayer({
+    id: "ovt-pt", type: "circle", source: "ovt", "source-layer": "overture",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 12, 4, 16, 6],
+      "circle-color": "#1c7ed6", "circle-opacity": 0.7,
+      "circle-stroke-width": 0.3, "circle-stroke-color": "#fff"
+    }
+  });
+  map.addLayer({
+    id: "osm-pt", type: "circle", source: "osm", "source-layer": "osm",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 12, 4, 16, 6],
+      "circle-color": "#e8590c", "circle-opacity": 0.7,
+      "circle-stroke-width": 0.3, "circle-stroke-color": "#fff"
+    }
+  });
+
+  const applyFilter = () => {
+    const c = document.getElementById("cat").value;
+    const f = c === "all" ? null : ["==", ["get", "cat"], c];
+    map.setFilter("ovt-pt", f);
+    map.setFilter("osm-pt", f);
+  };
+  document.getElementById("cat").addEventListener("change", applyFilter);
+
+  document.getElementById("t-ovt").addEventListener("change", e =>
+    map.setLayoutProperty("ovt-pt", "visibility", e.target.checked ? "visible" : "none"));
+  document.getElementById("t-osm").addEventListener("change", e =>
+    map.setLayoutProperty("osm-pt", "visibility", e.target.checked ? "visible" : "none"));
+
+  for (const [lid, src] of [["ovt-pt","Overture"],["osm-pt","OSM"]]) {
+    map.on("click", lid, (e) => {
+      const p = e.features[0].properties;
+      new maplibregl.Popup().setLngLat(e.lngLat)
+        .setHTML(`<b>${p.name || "(名称なし)"}</b><br>ソース: ${src}<br>カテゴリ: ${p.cat_raw || p.cat}` +
+                 (p.confidence ? `<br>confidence: ${(+p.confidence).toFixed(2)}` : ""))
+        .addTo(map);
+    });
+    map.on("mouseenter", lid, () => map.getCanvas().style.cursor = "pointer");
+    map.on("mouseleave", lid, () => map.getCanvas().style.cursor = "");
+  }
+});
+
+document.getElementById("c-ovt").textContent = "194,879";
+document.getElementById("c-osm").textContent = "88,964";
+</script>
+</body>
+</html>
