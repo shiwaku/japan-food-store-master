@@ -122,11 +122,16 @@
 | `super`（スーパー） | `supermarket` | `shop=supermarket` |
 | `conv`（コンビニ） | `convenience_store` | `shop=convenience` |
 | `drug`（ドラッグストア） | `drugstore` | `shop=chemist` |
-| `grocery`（食料品店） | `grocery_store` | `shop=greengrocer/grocery/food` |
+| `grocery`（食料品店） | `grocery_store` | `shop=greengrocer/grocery/food/farm` |
 | `fresh`（生鮮専門店・直売所） | `butcher_shop` / `seafood_market` / `fruits_and_vegetables_store` / `farmers_market` | `shop=butcher/seafood`, `amenity=marketplace` |
-| `discount`（ディスカウント） | `discount_store` | `shop=discount/variety_store` |
-| `dept`（百貨店） | `department_store` | `shop=department_store` |
-| **除外** | ~~`pharmacy`（調剤薬局）~~ | ~~`amenity=pharmacy`~~ |
+| **除外** | `pharmacy`（調剤薬局）／`discount_store`（100均・ディスカウント）／`department_store`（百貨店） | `amenity=pharmacy`／`shop=discount/variety_store/department_store`／その他の非食料品タグすべて |
+
+> **監査による除外の経緯（2026/7/12）**: 当初 `discount_store`・`department_store` を含めていたが、中身を全件点検した結果:
+> - `discount_store` … 実体はほぼ100円ショップ・雑貨（ダイソー・キャンドゥ・セリア・3COINS等。JP 10,891件の約7割）。農水省定義に含まれないため**カテゴリごと除外**。
+> - `department_store` … 本物の百貨店（デパ地下＝食料品）と、パルコ・ルミネ・無印・丸井・ヤマダ電機・JTB等の非食品が混在（Overture 1,719/OSM 592件）。ブランド選別が不安定なため**カテゴリごと除外**。
+> - さらに `grocery`・その他に漏れ込んだ100均（ダイソー等 約232件）・証明写真機「Photo ME」（約45件）を**店名で除去**。
+> - OSM は「既知の食料品タグのみ採用」に変更し、ELSE に紛れていた雑多タグ（mall/jewelry/furniture/electronics/pawnbroker/medical_supply/cosmetics 等）を自動除外。
+> - 結果、食料品以外の店の混入はゼロ（英語店名「…Butcher Department」の2件は精肉売り場＝食料品で正当）。
 
 ---
 
@@ -146,7 +151,7 @@
   （抽出時は pharmacy も取得したが、定義準拠版では除外）
   ```
 - **取得属性**: `id, names.primary(name), categories.primary(category), confidence, addresses[1].country/region, ST_X/Y(geometry)`
-- **件数**: bbox生データ 246,400件 → `country='JP'`＋`pharmacy`除外後 **183,790件**
+- **件数**: bbox生データ 246,400件 → `country='JP'`＋食料品系カテゴリのみ（pharmacy/discount_store/department_store除外）＋100均・証明写真機の店名除去後 **170,899件**
 - **既知の課題**:
   - `region`（都道府県）属性が約66%欠損 → 都道府県別集計は行政区域データ（国土数値情報N03）との空間結合が必要（※`country`は欠損なし）
   - コンビニに支店名なしの重複エントリが多数（要ブランド名寄せ）
@@ -187,7 +192,7 @@ COPY (
   amenity = pharmacy | marketplace
   ```
 - **定義準拠処理**: `amenity=pharmacy`（調剤薬局、`shop`タグ無し）を除外
-- **件数**: 生データ 111,186件 → `amenity=pharmacy`除外後 **88,964件**
+- **件数**: 生データ 111,186件 → 既知の食料品タグのみ採用（pharmacy・discount/variety・department_store・非食料品タグ除外）後 **81,363件**
 - **注意**: `shop=chemist`（ドラッグストア、食品扱う）は残し、`amenity=pharmacy`（調剤薬局）は除外。両者はOSM上で別タグ。
 
 ### 抽出クエリ（Overpass QL）
@@ -223,10 +228,10 @@ curl -A "japan-mobility-ease-diagnosis (contact: ...)" \
 `public/`（GitHub Pages公開・農水省定義準拠・日本のみ）:
 | ファイル | 内容 |
 |---|---|
-| `overture_food.pmtiles` | Overture 183,790件（country='JP'＋pharmacy除外） |
-| `osm_food.pmtiles` | OSM 88,964件（amenity=pharmacy除外） |
+| `overture_food.pmtiles` | Overture 170,899件（JP・食料品系のみ・100均/百貨店/証明写真機除外） |
+| `osm_food.pmtiles` | OSM 81,363件（食料品タグのみ） |
 | `compare.html` → `src/compare.ts` | MapLibre比較ビューワー（Vite+TS） |
-| `compare_overview_jp.png` | 全国分布の静的比較画像 |
+| `compare_overview_jp2.png` | 全国分布の静的比較画像 |
 
 ---
 
