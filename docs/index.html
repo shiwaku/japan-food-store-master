@@ -1,0 +1,596 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>公共交通空白地域マップ — 全国125mメッシュ</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif; background: #f5f5f0; color: #1a1a1a; }
+
+    #map { width: 100vw; height: 100dvh; }
+
+    /* ── ヘッダー ── */
+    #header {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+      background: linear-gradient(to bottom, rgba(245,245,240,0.95), rgba(245,245,240,0));
+      padding: 14px 20px 32px;
+      pointer-events: none;
+    }
+    #header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.03em; color: #000; }
+    #header p  { font-size: 0.78rem; color: #333; margin-top: 2px; }
+
+    /* ── 検索パネル ── */
+    #search-panel {
+      position: absolute; top: 14px; right: 14px; z-index: 20;
+      background: rgba(255,255,252,0.94);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 10px;
+      padding: 12px 14px;
+      width: 280px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    }
+    #search-panel h2 { font-size: 0.82rem; font-weight: 600; margin-bottom: 8px; color: #333; }
+    #search-row { display: flex; gap: 6px; }
+    #address-input {
+      flex: 1; padding: 7px 10px; border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.18);
+      background: #fff; color: #1a1a1a;
+      font-size: 0.82rem; outline: none;
+    }
+    #address-input::placeholder { color: #aaa; }
+    #search-btn {
+      padding: 7px 12px; border-radius: 6px; border: none;
+      background: #3b82f6; color: white; font-size: 0.82rem;
+      cursor: pointer; font-weight: 600; white-space: nowrap;
+    }
+    #search-btn:hover { background: #2563eb; }
+    #result-box {
+      margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+      font-size: 0.8rem; display: none;
+    }
+    #result-box.convenient  { background: rgba(52,211,153,0.12); border: 1px solid #34d399; }
+    #result-box.inconvenient{ background: rgba(251,146,60,0.12); border: 1px solid #fb923c; }
+    #result-box.desert      { background: rgba(244,63,94,0.10);  border: 1px solid #f43f5e; }
+    #result-box .cat-label  { font-size: 1rem; font-weight: 700; color: #1a1a1a; }
+    #result-box .cat-detail { margin-top: 4px; color: #555; line-height: 1.5; }
+
+    /* ── 凡例 ── */
+    #legend {
+      position: absolute; bottom: 46px; left: 14px; z-index: 20;
+      background: rgba(255,255,252,0.94);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px; padding: 12px 16px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+    #legend-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    #legend h3 { font-size: 0.78rem; color: #666; font-weight: 500; }
+    #legend-close {
+      display: none;
+      background: none; border: none; cursor: pointer;
+      font-size: 0.9rem; color: #999; padding: 0 0 0 8px; line-height: 1;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 0.82rem; color: #333; }
+    .legend-dot { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── 2D/3D トグルボタン ── */
+    #view-toggle {
+      position: absolute;
+      top: 14px; right: 308px; z-index: 20;
+      background: rgba(255,255,252,0.94);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 10px; padding: 8px 14px;
+      font-size: 0.82rem; font-weight: 600; color: #333;
+      cursor: pointer; backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      white-space: nowrap;
+    }
+    #view-toggle:hover { background: rgba(240,240,235,0.97); }
+
+    /* ── 凡例・集計・現在地トグルボタン（スマホのみ表示） ── */
+    #legend-toggle, #stats-toggle, #geolocate-toggle {
+      display: none;
+    }
+
+    /* ── 統計バッジ ── */
+    #stats {
+      position: absolute; bottom: 46px; right: 14px; z-index: 20;
+      background: rgba(255,255,252,0.94);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px; padding: 12px 16px;
+      backdrop-filter: blur(6px); text-align: right;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+    #stats-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    #stats h3 { font-size: 0.78rem; color: #888; }
+    #stats-close {
+      display: block;
+      background: none; border: none; cursor: pointer;
+      font-size: 0.9rem; color: #999; padding: 0 0 0 8px; line-height: 1;
+    }
+    /* デスクトップ用：集計パネルを閉じた後に再表示するボタン */
+    #stats-toggle.desktop-visible {
+      display: flex; align-items: center;
+      position: absolute;
+      bottom: 46px; right: 14px; z-index: 20;
+      background: rgba(255,255,252,0.94);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 10px; padding: 8px 14px;
+      font-size: 0.82rem; font-weight: 600; color: #333;
+      cursor: pointer; backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    }
+    .stat-row  { font-size: 0.84rem; color: #333; margin: 3px 0; }
+    .stat-row span { font-weight: 700; }
+    .stat-desert { color: #c0392b; }
+    #assumptions {
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      text-align: left;
+    }
+    #assumptions dl { font-size: 0.78rem; line-height: 1.5; }
+    #assumptions dt { font-weight: 600; color: #555; margin-top: 6px; }
+    #assumptions dt:first-child { margin-top: 0; }
+    #assumptions dd { color: #777; margin: 0 0 0 0; }
+
+    /* ── ローディング ── */
+    #loading {
+      position: absolute; inset: 0; z-index: 50;
+      background: #f5f5f0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px;
+    }
+    #loading p { font-size: 0.9rem; color: #888; }
+    .spinner { width: 36px; height: 36px; border: 3px solid rgba(0,0,0,0.1);
+               border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── MapLibre コントロール位置調整 ── */
+    .maplibregl-ctrl-top-left { top: 66px !important; }
+
+    /* ── スマホ対応 ── */
+    @media (max-width: 600px) {
+      /* ノッチ・ステータスバー対応 */
+      #header {
+        padding: max(10px, env(safe-area-inset-top)) 12px 24px;
+      }
+      #header h1 { font-size: 1rem; }
+
+      /* スマホはピンチズームで操作できるのでMapLibreコントロールをすべて非表示 */
+      .maplibregl-ctrl-top-left { display: none !important; }
+
+      /* ホームインジケーター対応のボトムシート */
+      #search-panel {
+        top: auto; bottom: 0; right: 0; left: 0;
+        width: 100%; border-radius: 14px 14px 0 0;
+        padding: 14px 16px max(20px, env(safe-area-inset-bottom));
+        box-shadow: 0 -2px 16px rgba(0,0,0,0.12);
+      }
+      /* iOS Safari: 16px未満だと入力時に自動ズームされるため16px固定 */
+      #address-input { font-size: 16px; padding: 11px 12px; }
+      #search-btn    { font-size: 16px; padding: 11px 16px; min-width: 60px; }
+
+      /* 結果が長くてもパネルが画面を覆いすぎないよう制限 */
+      #result-box { max-height: 110px; overflow-y: auto; }
+
+      /* 凡例: デフォルト非表示、open クラスで表示 */
+      #legend {
+        display: none;
+        top: max(54px, calc(env(safe-area-inset-top) + 44px));
+        right: 14px; left: auto; bottom: auto; padding: 10px 14px;
+      }
+      #legend.open { display: block; z-index: 30; }
+      #legend-close { display: block; }
+      .legend-item { font-size: 0.78rem; margin: 4px 0; }
+      .legend-dot  { width: 11px; height: 11px; }
+
+      /* 右上ボタン共通：幅を固定して揃える */
+      #legend-toggle, #stats-toggle, #view-toggle, #geolocate-toggle {
+        width: 52px;
+        justify-content: center;
+        text-align: center;
+        padding: 6px 0;
+        box-sizing: border-box;
+      }
+
+      /* 凡例トグルボタン：ヘッダー右端に配置 */
+      #legend-toggle {
+        display: flex; align-items: center;
+        position: absolute;
+        top: max(12px, env(safe-area-inset-top));
+        right: 14px; z-index: 20;
+        background: rgba(255,255,252,0.94);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        font-size: 0.82rem; font-weight: 600; color: #333;
+        cursor: pointer; backdrop-filter: blur(6px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        line-height: 1.4;
+      }
+
+      /* 統計: デフォルト非表示、open クラスで表示 */
+      #stats {
+        display: none;
+        top: max(54px, calc(env(safe-area-inset-top) + 44px));
+        left: 14px; right: auto; bottom: auto;
+        text-align: left;
+        max-height: calc(100dvh - 160px);
+        overflow-y: auto;
+      }
+      #stats.open { display: block; }
+      #stats-close { display: block; }
+
+      /* 集計トグルボタン：凡例ボタンの下に配置 */
+      #stats-toggle {
+        display: flex; align-items: center;
+        position: absolute;
+        top: max(52px, calc(env(safe-area-inset-top) + 42px));
+        right: 14px; z-index: 20;
+        background: rgba(255,255,252,0.94);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        font-size: 0.82rem; font-weight: 600; color: #333;
+        cursor: pointer; backdrop-filter: blur(6px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        line-height: 1.4;
+      }
+
+      /* 2D/3Dトグル：集計ボタンの下に配置 */
+      #view-toggle {
+        top: max(92px, calc(env(safe-area-inset-top) + 82px));
+        right: 14px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        font-size: 0.82rem;
+      }
+
+      /* 現在地トグル：3D表示ボタンの下に配置 */
+      #geolocate-toggle {
+        display: flex; align-items: center;
+        position: absolute;
+        top: max(132px, calc(env(safe-area-inset-top) + 122px));
+        right: 14px; z-index: 20;
+        background: rgba(255,255,252,0.94);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer; backdrop-filter: blur(6px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        line-height: 1.4;
+      }
+    }
+
+    /* ── 横向き対応 ── */
+    @media (max-width: 900px) and (orientation: landscape) {
+      #header { display: none; }
+      .maplibregl-ctrl-top-left { top: 10px !important; }
+      #search-panel {
+        top: auto; bottom: 0; right: 0; left: 0;
+        width: 100%; border-radius: 10px 10px 0 0;
+        padding: 10px 16px max(8px, env(safe-area-inset-bottom));
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>地図を読み込んでいます…</p>
+</div>
+
+<div id="map"></div>
+
+<div id="header">
+  <h1>公共交通空白地域マップ</h1>
+  <p>全国125mメッシュ × 道路距離 | 令和2年国勢調査</p>
+</div>
+
+<div id="search-panel">
+  <h2>あなたの自宅は？</h2>
+  <div id="search-row">
+    <input id="address-input" type="text" placeholder="住所・地名を入力（例：秋田市）" />
+    <button id="search-btn">検索</button>
+  </div>
+  <div id="result-box"></div>
+</div>
+
+<div id="legend">
+  <div id="legend-header">
+    <h3>公共交通アクセス区分</h3>
+    <button id="legend-close" aria-label="閉じる">✕</button>
+  </div>
+  <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>便利地域（鉄道駅 1km以内）</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>不便地域（バス停 500m以内）</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f43f5e"></div>空白地域</div>
+  <div style="margin-top:8px;font-size:0.72rem;color:#999;line-height:1.4;">※ バス停は路線バスのみ。<br>デマンドバス・高速バスは含まない。</div>
+</div>
+<button id="legend-toggle">凡例</button>
+<button id="stats-toggle">集計</button>
+<button id="view-toggle">3D</button>
+<button id="geolocate-toggle">📍</button>
+
+<div id="stats">
+  <div id="stats-header">
+    <h3>全国集計（令和2年国勢調査）</h3>
+    <button id="stats-close" aria-label="閉じる">✕</button>
+  </div>
+  <div class="stat-row">便利地域 <span>5,407万人</span>（42.9%）</div>
+  <div class="stat-row">不便地域 <span>5,428万人</span>（43.1%）</div>
+  <div class="stat-row stat-desert">空白地域 <span>1,772万人</span>（14.1%）</div>
+  <div id="assumptions">
+    <dl>
+      <dt>距離計算</dt>
+      <dd>道路ネットワーク上の徒歩距離（3.6 km/h・Dijkstra）<br>直線距離ではない</dd>
+      <dt>判定閾値</dt>
+      <dd>鉄道駅 ≤ 1 km（16.7分）→ 便利<br>バス停 ≤ 500 m（8.3分）→ 不便<br>どちらも超える → 空白</dd>
+      <dt>データ出典</dt>
+      <dd>鉄道駅: 国土数値情報 駅別乗降客数（S12）2024年<br>バス停: 国土数値情報 バス停留所（P11）2022年<br>道路: 国土数値情報 道路データ（N13）2024年度<br>人口: 令和2年国勢調査 125mメッシュ（総務省統計局）</dd>
+      <dt>バス停</dt>
+      <dd>路線バスのみ<br>デマンドバス・高速バスは含まない</dd>
+    </dl>
+  </div>
+</div>
+
+<script>
+// ── PMTiles URL（ローカル開発時は ../output/ を使用してCORSを回避） ──
+const PMTILES_URL = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+  ? "../output/transit_desert_125m.pmtiles"
+  : "https://shiworks2.xsrv.jp/pmtiles/mlit-ksj/transit_desert_125m.pmtiles";
+
+// ── PMTiles プロトコル登録 ──
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol("pmtiles", protocol.tile);
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "./pale.json",
+  center: [136.5, 36.5],
+  zoom: 5,
+  pitch: 0,
+  bearing: 0,
+  maxZoom: 16,
+  hash: true,
+});
+
+map.addControl(new maplibregl.NavigationControl(), "top-left");
+const geolocate = new maplibregl.GeolocateControl({
+  positionOptions: { enableHighAccuracy: true },
+  trackUserLocation: false,
+  showAccuracyCircle: false,
+});
+map.addControl(geolocate, "top-left");
+map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+
+map.on("load", () => {
+  document.getElementById("loading").style.display = "none";
+
+  // ── PMTiles ソース ──
+  map.addSource("transit", {
+    type: "vector",
+    url: `pmtiles://${PMTILES_URL}`,
+  });
+
+  const catColor = [
+    "match", ["get", "cat_code"],
+    0, "#34d399",
+    1, "#fb923c",
+    2, "#f43f5e",
+    "#888"
+  ];
+
+  map.addLayer({
+    id: "transit-fill",
+    type: "fill-extrusion",
+    source: "transit",
+    "source-layer": "transit_desert",
+    paint: {
+      "fill-extrusion-color": catColor,
+      "fill-extrusion-opacity": OPACITY_2D,
+      "fill-extrusion-base": 0,
+      "fill-extrusion-height": 0
+    }
+  });
+
+  map.addLayer({
+    id: "transit-outline",
+    type: "line",
+    source: "transit",
+    "source-layer": "transit_desert",
+    minzoom: 10,
+    paint: {
+      "line-color": "rgba(0,0,0,0.15)",
+      "line-width": 0.3
+    }
+  });
+
+  // ── ポップアップ（ホバー＋クリック/タップ） ──
+  // closeOnClick: false にして手動管理。closeOnClick:true はMapLibre内部clickで即消えるため使わない
+  const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, offset: 8 });
+  let pinned = false;
+  popup.on("close", () => { pinned = false; });
+  const CAT_LABEL = { 0: "公共交通便利地域", 1: "公共交通不便地域", 2: "公共交通空白地域" };
+  const CAT_COLOR = { 0: "#34d399", 1: "#fb923c", 2: "#f43f5e" };
+
+  function makePopupHTML(p) {
+    const code   = p.cat_code;
+    const busMin = p.dist_bus_min >= 0 ? `${Number(p.dist_bus_min).toFixed(1)}分` : "—";
+    const stMin  = p.dist_station_min >= 0 ? `${Number(p.dist_station_min).toFixed(1)}分` : "—";
+    const pop    = p.pop_total ? `${Number(p.pop_total).toLocaleString()}人` : "0人";
+    return `<div style="font-size:0.82rem;line-height:1.6;min-width:180px">
+      <div style="font-weight:700;color:${CAT_COLOR[code]};margin-bottom:4px">${CAT_LABEL[code]}</div>
+      <div>最寄り鉄道駅：${stMin}</div>
+      <div>最寄りバス停：${busMin}</div>
+      <div>夜間人口（125m四方）：${pop}</div>
+    </div>`;
+  }
+
+  // マップ上の空白タップ/クリックでポップアップを閉じる
+  map.on("click", (e) => {
+    if (!map.queryRenderedFeatures(e.point, { layers: ["transit-fill"] }).length) {
+      popup.remove();
+    }
+  });
+
+  // PC: マウスホバー（pinned中は更新しない）
+  map.on("mousemove", "transit-fill", (e) => {
+    map.getCanvas().style.cursor = "pointer";
+    if (!pinned) popup.setLngLat(e.lngLat).setHTML(makePopupHTML(e.features[0].properties)).addTo(map);
+  });
+  map.on("mouseleave", "transit-fill", () => {
+    map.getCanvas().style.cursor = "";
+    if (!pinned) popup.remove();
+  });
+
+  // クリック/タップ（PC・スマホ共通）
+  map.on("click", "transit-fill", (e) => {
+    pinned = true;
+    popup.setLngLat(e.lngLat).setHTML(makePopupHTML(e.features[0].properties)).addTo(map);
+  });
+});
+
+// ── 住所検索 ──
+const CAT_INFO = {
+  "0_公共交通便利地域":  { cls: "convenient",   label: "公共交通便利地域 🟢", desc: "鉄道駅まで徒歩1km圏内です。", color: "#34d399" },
+  "1_公共交通不便地域":  { cls: "inconvenient", label: "公共交通不便地域 🟠", desc: "鉄道駅は遠いが、バス停まで500m以内です。", color: "#fb923c" },
+  "2_公共交通空白地域":  { cls: "desert",       label: "公共交通空白地域 🔴", desc: "鉄道駅・バス停どちらも遠く、車がないと生活困難です。", color: "#f43f5e" },
+};
+
+let searchMarker = null;
+
+async function searchAddress() {
+  const q = document.getElementById("address-input").value.trim();
+  if (!q) return;
+  const btn = document.getElementById("search-btn");
+  btn.textContent = "…";
+  btn.disabled = true;
+
+  try {
+    // 国土地理院 地名検索API
+    const url = `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(q)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.length) { showResult(null, "住所が見つかりませんでした"); return; }
+
+    const [lon, lat] = data[0].geometry.coordinates;
+    const display_name = data[0].properties.title;
+    const lngLat = [lon, lat];
+
+    // 既存マーカーを削除してピンを立てる（flyTo前に配置）
+    if (searchMarker) searchMarker.remove();
+    searchMarker = new maplibregl.Marker({ color: "#3b82f6" })
+      .setLngLat(lngLat)
+      .addTo(map);
+
+    map.flyTo({ center: lngLat, zoom: 13, duration: 800 });
+
+    // ポイントのフィーチャを取得（flyTo完了 → タイル描画完了後）
+    map.once("moveend", () => {
+      map.once("idle", () => {
+      const pt = map.project(lngLat);
+      const features = map.queryRenderedFeatures(pt, { layers: ["transit-fill"] });
+      if (features.length) {
+        const cat = features[0].properties.category;
+        const info = CAT_INFO[cat];
+        const busMin = features[0].properties.dist_bus_min;
+        const stMin  = features[0].properties.dist_station_min;
+        const detail = `${info.desc}<br>鉄道駅まで ${stMin >= 0 ? stMin.toFixed(1)+"分" : "—"}、バス停まで ${busMin >= 0 ? busMin.toFixed(1)+"分" : "—"}`;
+        showResult(info, detail);
+        // カテゴリ色に合わせてマーカーを更新
+        searchMarker.remove();
+        searchMarker = new maplibregl.Marker({ color: info.color })
+          .setLngLat(lngLat)
+          .addTo(map);
+      } else {
+        showResult(null, `<b>${display_name.split(",")[0]}</b> 周辺にデータがありません（海上・国外の可能性）`);
+      }
+      }); // idle
+    });
+  } catch (e) {
+    showResult(null, "検索エラーが発生しました");
+  } finally {
+    btn.textContent = "検索";
+    btn.disabled = false;
+  }
+}
+
+function showResult(info, detail) {
+  const box = document.getElementById("result-box");
+  box.style.display = "block";
+  box.className = info ? info.cls : "";
+  box.innerHTML = info
+    ? `<div class="cat-label">${info.label}</div><div class="cat-detail">${detail}</div>`
+    : `<div class="cat-detail">${detail}</div>`;
+}
+
+document.getElementById("search-btn").addEventListener("click", searchAddress);
+document.getElementById("address-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") searchAddress();
+});
+
+// ── 凡例トグル（スマホ） ──
+const legendPanel  = document.getElementById("legend");
+const legendToggle = document.getElementById("legend-toggle");
+const legendClose  = document.getElementById("legend-close");
+
+legendToggle.addEventListener("click", () => {
+  const isOpen = legendPanel.classList.toggle("open");
+  legendToggle.textContent = isOpen ? "✕ 閉じる" : "凡例";
+});
+legendClose.addEventListener("click", () => {
+  legendPanel.classList.remove("open");
+  legendToggle.textContent = "凡例";
+});
+
+// ── 集計トグル（スマホ） ──
+const statsPanel  = document.getElementById("stats");
+const statsToggle = document.getElementById("stats-toggle");
+const statsClose  = document.getElementById("stats-close");
+
+statsToggle.addEventListener("click", () => {
+  if (window.innerWidth > 600) {
+    statsPanel.style.display = "";
+    statsToggle.classList.remove("desktop-visible");
+  } else {
+    const isOpen = statsPanel.classList.toggle("open");
+    statsToggle.textContent = isOpen ? "✕ 閉じる" : "集計";
+  }
+});
+statsClose.addEventListener("click", () => {
+  if (window.innerWidth > 600) {
+    statsPanel.style.display = "none";
+    statsToggle.classList.add("desktop-visible");
+  } else {
+    statsPanel.classList.remove("open");
+    statsToggle.textContent = "集計";
+  }
+});
+
+// ── 2D/3D トグル ──
+const OPACITY_2D = ["interpolate", ["linear"], ["zoom"], 5, 0.9, 10, 0.75, 14, 0.6];
+const OPACITY_3D = 0.75;
+let is3D = false;
+
+document.getElementById("view-toggle").addEventListener("click", () => {
+  is3D = !is3D;
+  map.easeTo({ pitch: is3D ? 45 : 0, bearing: is3D ? -10 : 0, duration: 600 });
+  map.setPaintProperty(
+    "transit-fill", "fill-extrusion-height",
+    is3D ? ["*", ["coalesce", ["get", "pop_total"], 0], 5] : 0
+  );
+  map.setPaintProperty("transit-fill", "fill-extrusion-opacity", is3D ? OPACITY_3D : OPACITY_2D);
+  document.getElementById("view-toggle").textContent = is3D ? "2D" : "3D";
+});
+
+// ── 現在地トグル（スマホ用） ──
+document.getElementById("geolocate-toggle").addEventListener("click", () => {
+  geolocate.trigger();
+});
+</script>
+</body>
+</html>
