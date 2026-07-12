@@ -225,4 +225,35 @@ curl -A "japan-mobility-ease-diagnosis (contact: ...)" \
 
 ---
 
+## 7. 全出典一覧（URL）
+
+### 食品店POIデータ
+- Overture Maps — Places ガイド: https://docs.overturemaps.org/guides/places/
+- Overture Maps — AWS Open Data レジストリ（S3配布）: https://registry.opendata.aws/overture/
+- OpenStreetMap — 日本のカバレッジ状況（OSM Wiki）: https://wiki.openstreetmap.org/wiki/WikiProject_Japan/Current_coverage
+- Overpass API: https://overpass-api.de/api/interpreter
+
+### 農水省「食料品アクセス」定義・推計方法
+- 食料品アクセス問題の現状（農水省）: https://www.maff.go.jp/j/shokusan/eat/access_genjo.html
+- 食料品アクセスマップ（農林水産政策研究所）: https://www.maff.go.jp/primaff/seika/fsc/faccess/a_map.html
+- 研究成果報告会PDF「2020年食料品アクセスマップと困難人口の推計結果について」（高橋克也 2024）: https://www.maff.go.jp/primaff/koho/seminar/2023/attach/pdf/240319_01.pdf
+- 推計資料PDF（2020年国勢調査ベース、2024年2月公表）: https://www.maff.go.jp/primaff/koho/seminar/2023/attach/pdf/240319_01.pdf
+- プレスリリース「2020年食料品アクセス困難人口の推計結果の公表」（2024/2/27）: https://www.maff.go.jp/j/press/kanbo/kihyo01/240227.html
+- 高橋克也(2018)「食料品アクセス問題の現状と今後」『フードシステム研究』25巻3号: https://www.jstage.jst.go.jp/article/jfsr/25/3/25_119/_pdf/-char/ja
+- 農林水産政策研究所 食料品アクセス 学術論文一覧: https://www.maff.go.jp/primaff/seika/fsc/faccess/ronbun.html
+- （オンライン未取得・冊子）薬師寺哲郎(2017)『高齢者の自動車利用の推計』食料供給プロジェクト研究資料 第3号, pp.87-113 … 自動車利用率の推計式の出典とされる。URLなし。
+
+### 「交通空白」（国交省・所管の違い）
+- 「交通空白」解消に関する取組（国交省）: https://www.mlit.go.jp/sogoseisaku/transport/sosei_transport_tk_000237.html
+- 交通空白解消 特設サイト（国交省）: https://kotsu-kuhaku.jp/
+
+### 品質検証用
+- e-Stat 地域メッシュ統計（経済センサス）: https://www.stat.go.jp/data/mesh/index.html
+
+### 各データのライセンス
+- 国土数値情報 利用約款: https://nlftp.mlit.go.jp/ksj/other/yakkan.html
+- e-Stat 利用規約: https://www.e-stat.go.jp/terms-of-use
+
+---
+
 *関連: [検証_食品店データ_OSM_vs_Overture.md](検証_食品店データ_OSM_vs_Overture.md)*
