@@ -7,14 +7,16 @@
 
 ---
 
-## データ取得条件（農水省定義準拠）
+## データ取得条件（農水省定義準拠・日本のみ）
 
 | ソース | 取得方法 | リリース/日時 | 定義準拠後の件数 |
 |---|---|---|---|
-| Overture Places | S3から日本bbox+食品系カテゴリをDuckDBで抽出、`pharmacy`除外 | release 2026-06-17.0 | 194,879 |
-| OpenStreetMap | Overpass API、日本全域、shop/amenity系タグ、`amenity=pharmacy`除外 | 2026-07-12取得 | 88,964 |
+| Overture Places | S3から日本bbox+食品系カテゴリをDuckDBで抽出、`country='JP'`＋`pharmacy`除外 | release 2026-06-17.0 | 183,790 |
+| OpenStreetMap | Overpass API、日本全域（`ISO3166-1=JP`）、shop/amenity系タグ、`amenity=pharmacy`除外 | 2026-07-12取得 | 88,964 |
 
-※調剤薬局を含む生データは Overture 246,400 / OSM 111,186 件。うち調剤薬局が Overture 51,521・OSM 22,222 件あり、農水省定義では食料品店に数えないため除外した。
+※調剤薬局を含む生データは Overture（bbox内）246,400 / OSM 111,186 件。うち調剤薬局が Overture 51,521・OSM 22,222 件あり、農水省定義では食料品店に数えないため除外した。
+
+> **国外データの除去（重要）**: Overtureの抽出bbox（経度122.5–154 / 緯度24–45.8）は韓国・北朝鮮・ロシア沿海州・中国沿岸の一部を含むため、当初は国外POIが混入していた。国別内訳は JP 234,077・**KR 12,109**・RU 160・CN 53・KP 1（食品系全カテゴリ）。`addresses[].country`（欠損なし）で `country='JP'` に絞り除去した。OSMは`ISO3166-1=JP`で最初から日本限定のため混入なし。この修正でOverture側のみ件数が減少（農水省定義で 194,879→**183,790**）、被覆率・地方偏在の結論は不変。
 
 ---
 
@@ -23,7 +25,7 @@
 | 指標 | 件数 | 割合 |
 |---|---|---|
 | OSM総数 | 88,964 | — |
-| Overture総数 | 194,879 | — |
+| Overture総数 | 183,790 | — |
 | OSMのうちOvertureに一致あり | 75,877 | **85.3%** |
 
 → OSMの店の85.3%はOverture側にも存在。Overture総数がOSMの2倍以上あるのは、コンビニの重複（下記）で膨らんでいるため。
@@ -50,7 +52,7 @@
 
 ## 4. 全国分布の可視化
 
-`docs/compare_overview_maff.png`（左=Overture、中=OSM、右=OSMのみ＝Overtureの穴）。右パネルの赤点が地方全域に散っており、地方偏在（18.6% vs 8.9%）を視覚的に裏付ける。
+`public/compare_overview_jp.png`（左=Overture、中=OSM、右=OSMのみ＝Overtureの穴）。右パネルの赤点が地方全域に散っており、地方偏在（18.6% vs 8.9%）を視覚的に裏付ける。
 
 ---
 

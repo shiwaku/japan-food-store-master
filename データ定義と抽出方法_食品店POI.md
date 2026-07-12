@@ -70,6 +70,7 @@
 - **ライセンス**: CDLA-Permissive-2.0（タイル化・再配布可）
 - **抽出ツール**: DuckDB（httpfs + spatial 拡張）
 - **抽出範囲（bbox）**: `bbox.xmin BETWEEN 122.5 AND 154.0 AND bbox.ymin BETWEEN 24.0 AND 45.8`（日本全域、南西諸島〜北海道・小笠原を含む）
+- **⚠️ 国フィルタ（必須）**: 上記bboxは韓国・北朝鮮・ロシア沿海州・中国沿岸を含むため、**`addresses[].country = 'JP'` で日本のみに絞る**。この属性は欠損なし。国別内訳（食品系全カテゴリ）は JP 234,077・KR 12,109・RU 160・CN 53・KP 1。bboxだけだと国外POIが約12,300件混入する。
 - **カテゴリ条件**: 下記11カテゴリを抽出後、`pharmacy` を除外（農水省定義準拠）
   ```
   supermarket, grocery_store, convenience_store,
@@ -77,10 +78,10 @@
   drugstore, department_store, discount_store
   （抽出時は pharmacy も取得したが、定義準拠版では除外）
   ```
-- **取得属性**: `id, names.primary(name), categories.primary(category), categories.alternate, confidence, addresses[1].region/locality/freeform, ST_X/Y(geometry)`
-- **件数**: 生データ 246,400件 → `pharmacy`除外後 **194,879件**
+- **取得属性**: `id, names.primary(name), categories.primary(category), confidence, addresses[1].country/region, ST_X/Y(geometry)`
+- **件数**: bbox生データ 246,400件 → `country='JP'`＋`pharmacy`除外後 **183,790件**
 - **既知の課題**:
-  - `region`（都道府県）属性が約66%欠損 → 都道府県別集計は行政区域データ（国土数値情報N03）との空間結合が必要
+  - `region`（都道府県）属性が約66%欠損 → 都道府県別集計は行政区域データ（国土数値情報N03）との空間結合が必要（※`country`は欠損なし）
   - コンビニに支店名なしの重複エントリが多数（要ブランド名寄せ）
   - `fruits_and_vegetables_store` は0件（Overtureタクソノミー上、青果は別カテゴリの可能性。要確認）
 
@@ -90,17 +91,17 @@
 INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial;
 SET s3_region='us-west-2';
 COPY (
-  SELECT id, names.primary AS name, categories.primary AS category,
-         categories.alternate AS category_alt, confidence,
-         addresses[1].region AS region, addresses[1].locality AS locality,
-         addresses[1].freeform AS address, ST_X(geometry) AS lon, ST_Y(geometry) AS lat
+  SELECT id, names.primary AS name, categories.primary AS category, confidence,
+         addresses[1].country AS country, addresses[1].region AS region,
+         ST_X(geometry) AS lon, ST_Y(geometry) AS lat
   FROM read_parquet('s3://overturemaps-us-west-2/release/2026-06-17.0/theme=places/type=place/*')
   WHERE bbox.xmin BETWEEN 122.5 AND 154.0 AND bbox.ymin BETWEEN 24.0 AND 45.8
     AND categories.primary IN (
       'supermarket','grocery_store','convenience_store',
       'butcher_shop','seafood_market','fruits_and_vegetables_store','farmers_market',
       'drugstore','pharmacy','department_store','discount_store')
-) TO 'data/overture_food_stores_japan.parquet' (FORMAT PARQUET);
+) TO 'data/overture_food_stores_bbox.parquet' (FORMAT PARQUET);
+-- 利用時は country='JP' AND category<>'pharmacy' で絞る（農水省定義・日本のみ）
 ```
 
 ---
@@ -149,17 +150,16 @@ curl -A "japan-mobility-ease-diagnosis (contact: ...)" \
 `data/`（gitignore対象・再生成可能）:
 | ファイル | 内容 |
 |---|---|
-| `overture_food_stores_japan.parquet` | Overture生抽出（pharmacy含む、246,400件） |
-| `overture_food_stores_japan_geo.parquet` | 同上・geometry列つき（QGIS用） |
+| `overture_food_stores_bbox.parquet` | Overture生抽出（bbox内・country列つき・pharmacy含む、246,400件。JP 234,077/KR 12,109/RU 160/CN 53/KP 1） |
 | `osm_food_stores_japan.tsv` | OSM生抽出（111,186件） |
 
-`docs/`（GitHub Pages公開・農水省定義準拠）:
+`public/`（GitHub Pages公開・農水省定義準拠・日本のみ）:
 | ファイル | 内容 |
 |---|---|
-| `overture_food.pmtiles` | Overture 194,879件（pharmacy除外） |
-| `osm_food.pmtiles` | OSM 88,964件（pharmacy除外） |
-| `compare.html` | MapLibre比較ビューワー |
-| `compare_overview_maff.png` | 全国分布の静的比較画像 |
+| `overture_food.pmtiles` | Overture 183,790件（country='JP'＋pharmacy除外） |
+| `osm_food.pmtiles` | OSM 88,964件（amenity=pharmacy除外） |
+| `compare.html` → `src/compare.ts` | MapLibre比較ビューワー（Vite+TS） |
+| `compare_overview_jp.png` | 全国分布の静的比較画像 |
 
 ---
 
