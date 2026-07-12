@@ -1,13 +1,19 @@
-# Data files
+# Node / Vite
+node_modules/
+dist/
+*.local
+
+# Data files（生データ・再生成可能）
 data/
 input/
 output/
 *.parquet
-*.pmtiles
 *.geojson
-!docs/*.json
-# GitHub Pages公開用のPMTilesはコミットする
-!docs/*.pmtiles
+*.tsv
+
+# PMTiles は原則コミットしないが、公開用は public/ に置いてコミットする
+*.pmtiles
+!public/*.pmtiles
 
 # Python
 __pycache__/

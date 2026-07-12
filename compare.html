@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>食品店POI比較: OSM vs Overture</title>
+<meta name="description" content="農水省「食料品アクセス」定義準拠の食品店POIを、OSMとOverture Placesで網羅性比較" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="食品店POI比較" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+</head>
+<body>
+<div id="map"></div>
+
+<button id="panel-open" aria-label="パネルを開く">☰ 表示設定</button>
+
+<div id="panel">
+  <div id="panel-head">
+    <h1>食品店POI比較</h1>
+    <button id="panel-close" aria-label="パネルを閉じる">✕</button>
+  </div>
+  <div id="panel-body">
+    <div class="row">
+      <input type="checkbox" id="t-ovt" checked>
+      <span class="sw ovt"></span>
+      <label for="t-ovt">Overture (194,879)</label>
+    </div>
+    <div class="row">
+      <input type="checkbox" id="t-osm" checked>
+      <span class="sw osm"></span>
+      <label for="t-osm">OSM (88,964)</label>
+    </div>
+    <div class="row">
+      カテゴリ:
+      <select id="cat">
+        <option value="all">すべて</option>
+        <option value="super">スーパー</option>
+        <option value="conv">コンビニ</option>
+        <option value="drug">ドラッグストア</option>
+        <option value="grocery">食料品店</option>
+        <option value="fresh">生鮮専門店(青果・精肉・鮮魚)・直売所</option>
+        <option value="discount">ディスカウント</option>
+        <option value="dept">百貨店</option>
+      </select>
+    </div>
+    <div class="note">
+      農水省「食料品アクセス」定義準拠（調剤薬局を除外）。地方部ほどOvertureの取りこぼしが多い。
+      重なりを見るには片方だけ表示。クリックで店名表示。
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/compare.ts"></script>
+</body>
+</html>
