@@ -21,8 +21,8 @@ map.addControl(new maplibregl.NavigationControl(), "top-right");
 type LayerDef = { id: string; src: "ovt" | "osm"; sourceLayer: string; color: string; label: string };
 
 const LAYERS: LayerDef[] = [
-  { id: "ovt-pt", src: "ovt", sourceLayer: "overture", color: "#1c7ed6", label: "Overture" },
-  { id: "osm-pt", src: "osm", sourceLayer: "osm", color: "#e8590c", label: "OSM" },
+  { id: "ovt-pt", src: "ovt", sourceLayer: "overture", color: "#1c7ed6", label: "Overture Maps" },
+  { id: "osm-pt", src: "osm", sourceLayer: "osm", color: "#e8590c", label: "OpenStreetMap" },
 ];
 
 map.on("load", () => {
