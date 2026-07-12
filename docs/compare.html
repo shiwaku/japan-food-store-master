@@ -2,86 +2,133 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>食品店POI比較: OSM vs Overture</title>
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<meta name="description" content="農水省「食料品アクセス」定義準拠の食品店POIを、OSMとOverture Placesで網羅性比較" />
+<!-- PWA -->
+<link rel="manifest" href="./manifest.webmanifest" />
+<meta name="theme-color" content="#1c7ed6" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="食品店POI比較" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="./icon-192.png" />
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/pmtiles@3.2.1/dist/pmtiles.js"></script>
 <style>
-  body { margin:0; font-family: system-ui, sans-serif; }
-  #map { position:absolute; inset:0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", system-ui, sans-serif; color: #1a1a1a; }
+  #map { position: absolute; inset: 0; width: 100vw; height: 100dvh; }
+
+  /* ── パネル ── */
   #panel {
-    position:absolute; top:10px; left:10px; z-index:1; background:rgba(255,255,255,.95);
-    padding:14px 16px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,.2);
-    max-width:280px; font-size:13px; line-height:1.5;
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 20;
+    background: rgba(255,255,252,0.95);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 12px;
+    padding: 14px 16px;
+    max-width: 290px;
+    font-size: 13px; line-height: 1.5;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    transition: transform .25s ease, opacity .2s ease;
   }
-  #panel h1 { font-size:15px; margin:0 0 8px; }
-  .row { display:flex; align-items:center; gap:8px; margin:6px 0; }
-  .row input { width:16px; height:16px; }
-  .sw { width:14px; height:14px; border-radius:50%; display:inline-block; }
-  .osm { background:#e8590c; }
-  .ovt { background:#1c7ed6; }
-  .note { font-size:11px; color:#666; margin-top:8px; }
-  select { font-size:12px; padding:2px; }
+  #panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #panel h1 { font-size: 15px; font-weight: 700; }
+  #panel-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 16px; color: #888; line-height: 1; padding: 2px 4px;
+  }
+  #panel-close:hover { color: #333; }
+  #panel-body { margin-top: 8px; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .row input[type=checkbox] { width: 16px; height: 16px; }
+  .sw { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .osm { background: #e8590c; }
+  .ovt { background: #1c7ed6; }
+  .note { font-size: 11px; color: #666; margin-top: 10px; }
+  select { font-size: 13px; padding: 3px 4px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
+
+  /* パネルを閉じた状態 */
+  #panel.collapsed { transform: translateX(-115%); opacity: 0; pointer-events: none; }
+
+  /* パネル再表示ボタン */
+  #panel-open {
+    display: none;
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 20;
+    background: rgba(255,255,252,0.95);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 10px; padding: 8px 12px;
+    font-size: 13px; font-weight: 600; color: #333;
+    cursor: pointer; backdrop-filter: blur(8px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+  #panel-open.show { display: block; }
+
+  @media (max-width: 600px) {
+    #panel { max-width: none; left: 10px; right: 10px; }
+  }
 </style>
 </head>
 <body>
 <div id="map"></div>
+
+<button id="panel-open" aria-label="パネルを開く">☰ 表示設定</button>
+
 <div id="panel">
-  <h1>食品店POI比較</h1>
-  <div class="row">
-    <input type="checkbox" id="t-ovt" checked>
-    <span class="sw ovt"></span>
-    <label for="t-ovt">Overture (<span id="c-ovt">…</span>)</label>
+  <div id="panel-head">
+    <h1>食品店POI比較</h1>
+    <button id="panel-close" aria-label="パネルを閉じる">✕</button>
   </div>
-  <div class="row">
-    <input type="checkbox" id="t-osm" checked>
-    <span class="sw osm"></span>
-    <label for="t-osm">OSM (<span id="c-osm">…</span>)</label>
-  </div>
-  <div class="row">
-    カテゴリ:
-    <select id="cat">
-      <option value="all">すべて</option>
-      <option value="super">スーパー</option>
-      <option value="conv">コンビニ</option>
-      <option value="drug">ドラッグストア</option>
-      <option value="grocery">食料品店</option>
-      <option value="fresh">生鮮専門店(青果・精肉・鮮魚)・直売所</option>
-      <option value="discount">ディスカウント</option>
-      <option value="dept">百貨店</option>
-    </select>
-  </div>
-  <div class="note">
-    農水省「食料品アクセス」定義準拠（調剤薬局を除外）。Overture 194,879件 / OSM 88,964件。
-    地方部ほどOvertureの取りこぼしが多い（詳細は検証md）。重なりを見るには片方だけ表示。クリックで店名表示。
+  <div id="panel-body">
+    <div class="row">
+      <input type="checkbox" id="t-ovt" checked>
+      <span class="sw ovt"></span>
+      <label for="t-ovt">Overture (<span id="c-ovt">194,879</span>)</label>
+    </div>
+    <div class="row">
+      <input type="checkbox" id="t-osm" checked>
+      <span class="sw osm"></span>
+      <label for="t-osm">OSM (<span id="c-osm">88,964</span>)</label>
+    </div>
+    <div class="row">
+      カテゴリ:
+      <select id="cat">
+        <option value="all">すべて</option>
+        <option value="super">スーパー</option>
+        <option value="conv">コンビニ</option>
+        <option value="drug">ドラッグストア</option>
+        <option value="grocery">食料品店</option>
+        <option value="fresh">生鮮専門店(青果・精肉・鮮魚)・直売所</option>
+        <option value="discount">ディスカウント</option>
+        <option value="dept">百貨店</option>
+      </select>
+    </div>
+    <div class="note">
+      農水省「食料品アクセス」定義準拠（調剤薬局を除外）。地方部ほどOvertureの取りこぼしが多い。
+      重なりを見るには片方だけ表示。クリックで店名表示。
+    </div>
   </div>
 </div>
+
 <script>
 const proto = new pmtiles.Protocol();
 maplibregl.addProtocol("pmtiles", proto.tile);
 
 const map = new maplibregl.Map({
   container: "map",
-  style: {
-    version: 8,
-    glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-    sources: {
-      base: {
-        type: "raster",
-        tiles: ["https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"],
-        tileSize: 256,
-        attribution: "地理院タイル"
-      }
-    },
-    layers: [{ id: "base", type: "raster", source: "base" }]
-  },
+  style: "./pale.json",   // 国土地理院 最適化ベクトルタイル（淡色地図風）
   center: [138.5, 36.5],
   zoom: 5,
+  maxZoom: 17,
   hash: true
 });
 
-map.addControl(new maplibregl.NavigationControl());
+map.addControl(new maplibregl.NavigationControl(), "top-right");
 
 map.on("load", () => {
   map.addSource("ovt", { type: "vector", url: "pmtiles://./overture_food.pmtiles" });
@@ -92,7 +139,7 @@ map.on("load", () => {
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 12, 4, 16, 6],
       "circle-color": "#1c7ed6", "circle-opacity": 0.7,
-      "circle-stroke-width": 0.3, "circle-stroke-color": "#fff"
+      "circle-stroke-width": 0.4, "circle-stroke-color": "#fff"
     }
   });
   map.addLayer({
@@ -100,7 +147,7 @@ map.on("load", () => {
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 12, 4, 16, 6],
       "circle-color": "#e8590c", "circle-opacity": 0.7,
-      "circle-stroke-width": 0.3, "circle-stroke-color": "#fff"
+      "circle-stroke-width": 0.4, "circle-stroke-color": "#fff"
     }
   });
 
@@ -112,17 +159,17 @@ map.on("load", () => {
   };
   document.getElementById("cat").addEventListener("change", applyFilter);
 
-  document.getElementById("t-ovt").addEventListener("change", e =>
+  document.getElementById("t-ovt").addEventListener("change", (e) =>
     map.setLayoutProperty("ovt-pt", "visibility", e.target.checked ? "visible" : "none"));
-  document.getElementById("t-osm").addEventListener("change", e =>
+  document.getElementById("t-osm").addEventListener("change", (e) =>
     map.setLayoutProperty("osm-pt", "visibility", e.target.checked ? "visible" : "none"));
 
-  for (const [lid, src] of [["ovt-pt","Overture"],["osm-pt","OSM"]]) {
+  for (const [lid, src] of [["ovt-pt", "Overture"], ["osm-pt", "OSM"]]) {
     map.on("click", lid, (e) => {
       const p = e.features[0].properties;
-      new maplibregl.Popup().setLngLat(e.lngLat)
+      new maplibregl.Popup({ offset: 8 }).setLngLat(e.lngLat)
         .setHTML(`<b>${p.name || "(名称なし)"}</b><br>ソース: ${src}<br>カテゴリ: ${p.cat_raw || p.cat}` +
-                 (p.confidence ? `<br>confidence: ${(+p.confidence).toFixed(2)}` : ""))
+                 (p.confidence != null ? `<br>confidence: ${(+p.confidence).toFixed(2)}` : ""))
         .addTo(map);
     });
     map.on("mouseenter", lid, () => map.getCanvas().style.cursor = "pointer");
@@ -130,8 +177,24 @@ map.on("load", () => {
   }
 });
 
-document.getElementById("c-ovt").textContent = "194,879";
-document.getElementById("c-osm").textContent = "88,964";
+// ── パネル開閉 ──
+const panel = document.getElementById("panel");
+const panelOpen = document.getElementById("panel-open");
+document.getElementById("panel-close").addEventListener("click", () => {
+  panel.classList.add("collapsed");
+  panelOpen.classList.add("show");
+});
+panelOpen.addEventListener("click", () => {
+  panel.classList.remove("collapsed");
+  panelOpen.classList.remove("show");
+});
+
+// ── PWA: Service Worker 登録 ──
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
 </script>
 </body>
 </html>

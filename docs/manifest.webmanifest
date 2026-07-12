@@ -1,0 +1,17 @@
+{
+  "name": "食品店POI比較: OSM vs Overture",
+  "short_name": "食品店POI比較",
+  "description": "農水省「食料品アクセス」定義準拠の食品店POIを、OSMとOverture Placesで網羅性比較する地図ビューワー",
+  "start_url": "./compare.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f5f0",
+  "theme_color": "#1c7ed6",
+  "lang": "ja",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
