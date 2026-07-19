@@ -4,13 +4,7 @@ import { VitePWA } from "vite-plugin-pwa";
 // GitHub Pages プロジェクトページのため base にリポジトリ名を指定
 export default defineConfig({
   base: "/japan-food-store-master/",
-  build: {
-    rollupOptions: {
-      // compare.html を Vite のビルド対象エントリにする
-      // （public/index.html = 既存の空白地域ビューワーは verbatim コピー）
-      input: "compare.html",
-    },
-  },
+  // エントリは viewer/index.html（Vite 既定）。
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
@@ -28,7 +22,7 @@ export default defineConfig({
         short_name: "食品店POI比較",
         description:
           "農水省「食料品アクセス」定義準拠の食品店POIを、OSMとOverture Placesで網羅性比較",
-        start_url: "./compare.html",
+        start_url: "./index.html",
         scope: "./",
         display: "standalone",
         background_color: "#f5f5f0",
