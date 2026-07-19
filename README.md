@@ -37,12 +37,25 @@ npm run build    # dist/ を生成（GitHub Pages 公開）
 
 | データ | 提供元 | ライセンス |
 |---|---|---|
-| 食料品店 POI（主） | [Overture Places](https://docs.overturemaps.org/guides/places/) | CDLA-Permissive-2.0 |
+| 食料品店 POI（主） | [Overture Places](https://docs.overturemaps.org/guides/places/) | CDLA-Permissive-2.0（Foursquare 由来分は Apache 2.0） |
 | 食料品店 POI（補完） | OpenStreetMap | **ODbL 1.0** |
 | 食品営業許可オープンデータ | 各自治体 / FAS（食品衛生申請等システム） | 各データのオープンライセンス |
 | 網羅性検証（実数突合） | 経済センサス小売業（e-Stat）、JFA・SM白書・JACDS 等 | 各提供元の規約 |
 
-> **ライセンス注意**: OSM を混合した派生物は ODbL の継承（share-alike）対象になり得る。公開・再配布の前に必ずライセンス範囲を精査すること。詳細は `docs/` のライセンス調査を参照。
+### Overture Places の原典データと構成比
+
+Overture Places は財団自身が生成したデータではなく、複数の提供元を統合したもの。本データセットの Overture 抽出（全国・食料品店カテゴリ、confidence/重複除去前の 246,400 件）における原典の構成比は以下（各レコードは単一原典 + 財団の `Overture` タグを持つ）。
+
+| 原典データセット | 提供元 | 件数 | 構成比 | 備考 |
+|---|---|---:|---:|---|
+| **meta** | Meta（Facebook） | 101,763 | **41.3%** | 最大の供給元 |
+| **Foursquare** | Foursquare（FSQ OS Places） | 66,272 | 26.9% | この分のライセンスは Apache 2.0 |
+| **AllThePlaces** | [All the Places](https://www.alltheplaces.xyz/)（公式店舗ロケーターのスクレイプ） | 60,085 | 24.4% | 座標が正確なことが多い |
+| **Microsoft** | Microsoft | 18,280 | 7.4% | |
+
+> 集計元: `data/overture_food_full_jp.parquet` の `datasets` 配列（`Overture` タグを除外しレコード単位で算出）。同一実店舗が提供元ごとに別レコードとして残る（Overture の conflation 漏れ）ため、提供元別件数は名寄せ前の値。詳細は `docs/検証_食品店データ_OSM_vs_Overture.md` を参照。
+
+> **ライセンス注意**: OSM を混合した派生物は ODbL の継承（share-alike）対象になり得る。また Overture Places の Foursquare 由来分は Apache 2.0（帰属表示が必要）。公開・再配布の前に必ずライセンス範囲を精査すること。詳細は `docs/調査_食料品店マスターのライセンス.md` を参照。
 
 ## ライセンス
 
