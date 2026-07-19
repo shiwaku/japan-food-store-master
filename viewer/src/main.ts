@@ -18,14 +18,14 @@ const map = new maplibregl.Map({
 });
 
 // 帰属表示（OSMは ODbL で常時表示が必須。レイヤーON/OFFや表示範囲に依存せず
-// 常に出るよう、3出典すべてを customAttribution に集約する）
+// 常に出るよう、追加データ2出典を customAttribution に集約する。
+// 地理院ベースマップの出典は pale.json のソース attribution が自動表示するため含めない）
 map.addControl(
   new maplibregl.AttributionControl({
     compact: false,
     customAttribution: [
       '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>（ODbL）',
       '© <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps Foundation</a>',
-      "地図：国土地理院ベクトルタイル",
     ].join(" ｜ "),
   }),
   "bottom-right",
