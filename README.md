@@ -44,16 +44,16 @@ npm run build    # dist/ を生成（GitHub Pages 公開）
 
 ### Overture Places の原典データと構成比
 
-Overture Places は財団自身が生成したデータではなく、複数の提供元を統合したもの。本データセットの Overture 抽出（全国・食料品店カテゴリ、confidence/重複除去前の 246,400 件）における原典の構成比は以下（各レコードは単一原典 + 財団の `Overture` タグを持つ）。
+Overture Places は財団自身が生成したデータではなく、複数の提供元を統合したもの。本データセットの Overture 抽出（日本全国・食料品店カテゴリ、confidence/重複除去前の **234,077 件**、`country = 'JP'`）における原典の構成比は以下（各レコードは単一原典 + 財団の `Overture` タグを持つ）。
 
 | 原典データセット | 提供元 | 件数 | 構成比 | 備考 |
 |---|---|---:|---:|---|
-| **meta** | Meta（Facebook） | 101,763 | **41.3%** | 最大の供給元 |
-| **Foursquare** | Foursquare（FSQ OS Places） | 66,272 | 26.9% | この分のライセンスは Apache 2.0 |
-| **AllThePlaces** | [All the Places](https://www.alltheplaces.xyz/)（公式店舗ロケーターのスクレイプ） | 60,085 | 24.4% | 座標が正確なことが多い |
-| **Microsoft** | Microsoft | 18,280 | 7.4% | |
+| **meta** | Meta（Facebook） | 93,125 | **39.8%** | 最大の供給元 |
+| **Foursquare** | Foursquare（FSQ OS Places） | 62,960 | 26.9% | この分のライセンスは Apache 2.0 |
+| **AllThePlaces** | [All the Places](https://www.alltheplaces.xyz/)（公式店舗ロケーターのスクレイプ） | 60,081 | 25.7% | 座標が正確なことが多い |
+| **Microsoft** | Microsoft | 17,911 | 7.7% | |
 
-> 集計元: `data/overture_food_full_jp.parquet` の `datasets` 配列（`Overture` タグを除外しレコード単位で算出）。同一実店舗が提供元ごとに別レコードとして残る（Overture の conflation 漏れ）ため、提供元別件数は名寄せ前の値。詳細は `docs/検証_食品店データ_OSM_vs_Overture.md` を参照。
+> 集計元: `data/overture_food_full_jp.parquet` の `datasets` 配列（`Overture` タグを除外しレコード単位で算出）。このファイルは日本のバウンディングボックス抽出のため国外分（韓国 12,109・ロシア 160・中国 53・北朝鮮 1、計 12,323 件）を含む。上表は `country = 'JP'` に限定した 234,077 件が対象。同一実店舗が提供元ごとに別レコードとして残る（Overture の conflation 漏れ）ため、提供元別件数は名寄せ前の値。詳細は `docs/検証_食品店データ_OSM_vs_Overture.md` を参照。
 
 > **ライセンス注意**: OSM を混合した派生物は ODbL の継承（share-alike）対象になり得る。また Overture Places の Foursquare 由来分は Apache 2.0（帰属表示が必要）。公開・再配布の前に必ずライセンス範囲を精査すること。詳細は `docs/調査_食料品店マスターのライセンス.md` を参照。
 
