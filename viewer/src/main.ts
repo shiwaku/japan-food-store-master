@@ -17,11 +17,16 @@ const map = new maplibregl.Map({
   attributionControl: false, // 下でカスタム帰属表示を追加（地理院＋各データ出典）
 });
 
-// 帰属表示（OSMは ODbL で必須。Overture・国土地理院も明示）
+// 帰属表示（OSMは ODbL で常時表示が必須。レイヤーON/OFFや表示範囲に依存せず
+// 常に出るよう、3出典すべてを customAttribution に集約する）
 map.addControl(
   new maplibregl.AttributionControl({
     compact: false,
-    customAttribution: "地図：国土地理院ベクトルタイル",
+    customAttribution: [
+      '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>（ODbL）',
+      '© <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps Foundation</a>',
+      "地図：国土地理院ベクトルタイル",
+    ].join(" ｜ "),
   }),
   "bottom-right",
 );
@@ -35,16 +40,9 @@ const LAYERS: LayerDef[] = [
 ];
 
 map.on("load", () => {
-  map.addSource("ovt", {
-    type: "vector",
-    url: "pmtiles://./overture_food.pmtiles",
-    attribution: '© <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps Foundation</a>',
-  });
-  map.addSource("osm", {
-    type: "vector",
-    url: "pmtiles://./osm_food.pmtiles",
-    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>（ODbL）',
-  });
+  // 出典は上の AttributionControl(customAttribution) に集約済み（常時表示）
+  map.addSource("ovt", { type: "vector", url: "pmtiles://./overture_food.pmtiles" });
+  map.addSource("osm", { type: "vector", url: "pmtiles://./osm_food.pmtiles" });
 
   for (const l of LAYERS) {
     map.addLayer({
