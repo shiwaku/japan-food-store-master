@@ -87,13 +87,33 @@ map.on("load", () => {
     map.on("mouseleave", l.id, () => (map.getCanvas().style.cursor = ""));
   }
 
-  // カテゴリ絞り込み
+  // カテゴリ別件数（ソースデータ実数。pmtilesは低ズームで間引かれるため事前集計値を使う）
+  // 出典: scripts/compare_sources_by_category.sql（Overture名寄せ済 / OSM 農水省定義準拠）
+  const COUNTS: Record<string, { ovt: number; osm: number }> = {
+    all: { ovt: 109602, osm: 81380 },
+    super: { ovt: 18521, osm: 20348 },
+    conv: { ovt: 54987, osm: 48676 },
+    drug: { ovt: 7735, osm: 4554 },
+    grocery: { ovt: 20608, osm: 275 },
+    fresh: { ovt: 7751, osm: 7527 },
+  };
+  const cntOvt = document.getElementById("cnt-ovt")!;
+  const cntOsm = document.getElementById("cnt-osm")!;
+  const updateCounts = (c: string) => {
+    const n = COUNTS[c] ?? COUNTS.all;
+    cntOvt.textContent = n.ovt.toLocaleString("ja-JP");
+    cntOsm.textContent = n.osm.toLocaleString("ja-JP");
+  };
+
+  // カテゴリ絞り込み（上部の件数も連動）
   const catSelect = document.getElementById("cat") as HTMLSelectElement;
   catSelect.addEventListener("change", () => {
     const c = catSelect.value;
     const filter = c === "all" ? null : ["==", ["get", "cat"], c];
     for (const l of LAYERS) map.setFilter(l.id, filter as never);
+    updateCounts(c);
   });
+  updateCounts(catSelect.value); // 初期表示
 
   // ソース別ON/OFF
   const bind = (checkboxId: string, layerId: string) => {
