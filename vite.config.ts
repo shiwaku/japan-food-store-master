@@ -3,7 +3,7 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // GitHub Pages プロジェクトページのため base にリポジトリ名を指定
 export default defineConfig({
-  base: "/japan-mobility-ease-diagnosis/",
+  base: "/japan-food-store-master/",
   build: {
     rollupOptions: {
       // compare.html を Vite のビルド対象エントリにする
