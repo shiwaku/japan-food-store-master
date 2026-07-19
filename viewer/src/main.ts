@@ -31,6 +31,17 @@ map.addControl(
   "bottom-right",
 );
 map.addControl(new maplibregl.NavigationControl(), "top-right");
+// 現在地（GPS）ボタン
+map.addControl(
+  new maplibregl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: true },
+    trackUserLocation: true,
+    showUserLocation: true,
+  }),
+  "top-right",
+);
+// 全画面ボタン
+map.addControl(new maplibregl.FullscreenControl(), "top-right");
 
 type LayerDef = { id: string; src: "ovt" | "osm"; sourceLayer: string; color: string; label: string };
 
