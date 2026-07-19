@@ -1,13 +1,16 @@
 # 全国 食料品店マスター（japan-food-store-master）
 
-農水省「食料品アクセス」の定義に準拠した、全国の食料品店 POI マスターデータセットの構築・検証・可視化リポジトリ。
+農水省「[食料品アクセス](https://www.maff.go.jp/j/shokusan/eat/access_genjo.html)」（[食料品アクセスマップ／農林水産政策研究所](https://www.maff.go.jp/primaff/seika/fsc/faccess/a_map.html)による食料品アクセス困難人口の推計）の定義に準拠した、全国の食料品店 POI マスターデータセットの構築・検証・可視化リポジトリ。
 
 `japan-mobility-ease-diagnosis`（住所を入れるだけの移動しやすさ診断）の目的地レイヤーとして使う食料品店データを、単一の再現可能なパイプラインとして分離・整備することを目的とする。
 
 ## 何を作っているか
 
 - **食料品店マスター**（スーパー・食料品店・コンビニ・ドラッグストア等）を、Overture Places / OpenStreetMap / 食品営業許可オープンデータ等から統合構築
-- 網羅性を **経済センサス小売業（e-Stat）** および **業界実数**（JFA・スーパーマーケット白書・JACDS 等）と突合して検証
+- 網羅性をカテゴリ別に実数と突合して検証。数量の裏取りには **経済センサス小売業・商業動態統計（e-Stat）** と **業界実数（JFA・スーパーマーケット白書・JACDS 等）** を用いる。主な検証結果：
+  - コンビニ: 商業動態統計 **56,352 店**（≒JFA）に対し Overture 単独 **97.6%**
+  - スーパー: スーパーマーケット白書 **23,078 店**・経済センサス小分類 581 に対し Overture 80% / OSM 88%（単一ソースでは悉皆にならず grocery 浄化が必要）
+  - ドラッグストア: 商業動態統計 **17,622 店**・JACDS 約 21,000 店に対し POI は 4〜5 割（統計で件数補正）
 - カテゴリマッピング・confidence フィルタ・重複除去の前処理を実装
 
 現状: Phase1 構築済み（約 103,230 店 / 農水省加重ベースの実質カバー率 93.5%）。
@@ -15,23 +18,27 @@
 ## 構成
 
 ```
-scripts/     # 構築パイプライン（DuckDB SQL / Python / 食品オープンデータ再現）
-docs/        # 網羅性検証・データ設計・ライセンス調査
-data/        # QGIS スタイル(.qml) 等（生データ・大容量成果物は .gitignore）
-compare.html # OSM vs Overture 食料品POI 比較ビューア（MapLibre GL + PMTiles）
-src/         # 比較ビューアのソース
-public/      # 公開用 PMTiles・ベースマップスタイル
+scripts/            # 構築パイプライン（DuckDB SQL / Python / 食品オープンデータ再現）
+docs/               # 網羅性検証・データ設計・ライセンス調査
+data/               # QGIS スタイル(.qml) 等（生データ・大容量成果物は .gitignore）
+viewer/             # OSM vs Overture 食料品POI 比較ビューア（Vite + TypeScript + MapLibre GL / PMTiles）
+  index.html        #   エントリ
+  src/main.ts       #   アプリ本体
+  public/           #   公開用 PMTiles・ベースマップスタイル・アイコン
 ```
 
 ## 比較ビューア
 
-`compare.html` は、OSM と Overture Places の食料品店 POI 網羅性を地図上で目視照合する QA ツール。
+`viewer/` は、OSM と Overture Places の食料品店 POI 網羅性を地図上で目視照合する QA ツール（Vite + TypeScript）。公開先: **https://shiwaku.github.io/japan-food-store-master/**
 
 ```
+cd viewer
 npm ci
 npm run dev      # ローカル確認
-npm run build    # dist/ を生成（GitHub Pages 公開）
+npm run build    # dist/ を生成（GitHub Actions で GitHub Pages へ自動デプロイ）
 ```
+
+> ビューアは地図データの帰属を表示する: **© OpenStreetMap contributors（ODbL）** / **© Overture Maps Foundation** / 地図：国土地理院ベクトルタイル。
 
 ## データソースとライセンス
 

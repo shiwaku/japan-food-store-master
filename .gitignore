@@ -11,9 +11,9 @@ output/
 *.geojson
 *.tsv
 
-# PMTiles は原則コミットしないが、公開用は public/ に置いてコミットする
+# PMTiles は原則コミットしないが、公開用は viewer/public/ に置いてコミットする
 *.pmtiles
-!public/*.pmtiles
+!viewer/public/*.pmtiles
 
 # Python
 __pycache__/
