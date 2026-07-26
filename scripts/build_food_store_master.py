@@ -2,12 +2,14 @@
 """
 食料品店マスター構築（Phase 1）  ― 設計_食料品店マスター構築.md 準拠
 カテゴリ: supermarket / convenience / drugstore / fresh_food
-入力: data/overture_food_deduped_jp.parquet, data/osm_food_stores_japan.tsv, <scratch>/japan_pref.geojson
+入力: data/overture_food_deduped_jp.parquet, data/osm_food_stores_japan.tsv,
+      data/japan_pref.geojson（無ければ dataofjapan/land から自動取得）
 出力: data/food_store_master.parquet (GeoParquet), data/food_store_master.csv
 """
-import duckdb, sys, csv
+import duckdb, os, urllib.request
 
-SCRATCH = "/tmp/claude-1000/-mnt-c-Users-yshiw-Documents-GIS-japan-mobility-ease-diagnosis/5112583e-1e0a-42bb-be9e-67e744cf6fbf/scratchpad"
+PREF_GEOJSON = "data/japan_pref.geojson"
+PREF_URL = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
 OV = "read_parquet('data/overture_food_deduped_jp.parquet')"
 OSM = "read_csv_auto('data/osm_food_stores_japan.tsv', sep='\t', all_varchar=true)"
 
@@ -20,7 +22,11 @@ DEDUP_DEG = 0.0011  # ≒100m（緯度）
 
 con = duckdb.connect()
 con.execute("INSTALL spatial; LOAD spatial;")
-con.execute(f"create table pref as select nam_ja as pref, geom from ST_Read('{SCRATCH}/japan_pref.geojson')")
+if not os.path.exists(PREF_GEOJSON):
+    os.makedirs(os.path.dirname(PREF_GEOJSON), exist_ok=True)
+    print(f"取得: {PREF_URL} -> {PREF_GEOJSON}")
+    urllib.request.urlretrieve(PREF_URL, PREF_GEOJSON)
+con.execute(f"create table pref as select nam_ja as pref, geom from ST_Read('{PREF_GEOJSON}')")
 
 # ---- 各カテゴリの候補点（cat, name, brand, source, geom）----
 # supermarket: Overture supermarket ∪ 浄化grocery（groceryはsupermarket近接を除外して二重排除）

@@ -41,7 +41,30 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 - **Phase1 マスター構築済み**: 約 103,230 店 / 農水省加重ベースの実質カバー率 93.5%。
 - マスター実体: `data/food_store_master.csv` / `.parquet`（列 `cat`, `name` 等）。カテゴリ別件数:
   `convenience 54,793 / supermarket 30,638 / fresh_food 10,070 / drugstore 7,729`。
-- 次の一手候補: 地方 supermarket の OSM 補完、道の駅の追加検討（`docs/検討_道の駅の追加可否.md`、現状は見送り）。
+
+### ⚠️ 加重カバー率（93.5%）を fit-for-purpose の根拠に使わないこと
+
+農水省の指標は **500mメッシュ単位の二値・空間指標**で、件数比の加重平均とは別物。
+メッシュ単位で検証した結果（`docs/検証_アクセス困難人口_メッシュ単位.md`、3県88市区町村）:
+
+- **農水省の「500m以上」は同一500mメッシュ内の店舗存否**として実装されている（直線500m円ではない）。
+  実距離500m版・9近傍メッシュ版は公表値との比が1を超える市区町村が出て論理的に不整合。
+  → **隣メッシュの店舗には救われない**＝店舗の網羅性が距離指標に直に効く。
+- 現状マスターは公表値を**単一係数0.42で再現**でき比≤1を全市区町村で満たす → 相対比較には使える。
+  ただし係数が自動車利用困難率と店舗の穴のどちらに由来するか分離できていない
+  → **絶対人数の推計にはまだ耐えない**。市区町村単位の店舗由来誤差は概ね ±20〜30%。
+- **カテゴリ優先度が加重の議論と逆転する**: convenience −16.6pt ＞ fresh_food −3.3pt ＞ drugstore −1.2pt。
+  fresh_food は drugstore の約3倍効き、かつカバー率30%（不足23,890店）＝伸びしろ最大。
+  「drugstore/fresh は補完不要」（`docs/Phase1検証まとめと次の一手.md`）は **fresh_food については誤り**。
+
+### 次の一手（優先順）
+
+1. **自動車利用困難率を外部データで固定**して係数0.42を分解する（絶対推計への唯一の道）。
+2. **fresh_food の補完**（OSM の生鮮3種は計6,890件しかなく、センサス582/583/584 との差を埋める新ソースが必要）。
+3. 地方 supermarket の OSM 補完（S1で83.2%が圏外＝穴は大きい。**実装前に検証器で効果を測る**）。
+4. 閉店店舗の除外（Overture deduped は `operating_status` 空＝偽陽性方向）。
+5. 検証県を47県に拡張。
+- その他候補: 道の駅の追加検討（`docs/検討_道の駅の追加可否.md`、現状は見送り）。
 
 ## データソースと役割
 
@@ -79,9 +102,22 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 - **Overture の bbox 抽出は国外を含む**: `data/overture_food_full_jp.parquet`（246,400 件）は日本の bbox 抽出で韓国・ロシア等を含む。日本のみは `country = 'JP'`（234,077 件）で絞る。
 - **pmtiles は低ズームで点が間引かれる**（`--drop-densest-as-needed`）。地図上の描画数＝実データ件数ではない。
 - DuckDB CLI: `/home/shi-works/.duckdb/cli/latest/duckdb`。
+- **DuckDB の `/` は DOUBLE を返し `::int` が四捨五入する**。メッシュ添字等の整数除算は必ず `//` を使う（`(m-1)/2` で m=2 が 0.5→1 に丸められ別メッシュと衝突した）。
+- **`ST_Read` の戻り型は `GEOMETRY('EPSG:4612')`** で、そのままでは rtree インデックスが作れない。`geom::GEOMETRY` で素の型に落とす。
+- **e-Stat 境界 shapefile の DBF は CP932**。`CITY_NAME`/`PREF_NAME` を読むと DuckDB が unicode エラーを出す。ASCII のコード列（`PREF`,`CITY`）のみ読む。
+- **e-Stat メッシュ統計の列番号**: `T001141019` が65歳以上、`T001141022` は**75歳以上**。取り違えると分母が半分になる。
+- **e-Stat 統計GIS は appId 不要**でダウンロードできる（`statmap-search/data?dlserveyId=...&statsId=...`）。メッシュ統計・小地域境界とも。e-Stat API の appId はユーザー保有で、リポジトリには無い。
 
 ## 再現の要点
 
 - Overture 比較用 pmtiles 再生成: `bash scripts/build_pmtiles.sh`（`data/overture_food_deduped_jp.parquet` → `viewer/public/overture_food.pmtiles`、tippecanoe 必要）。
 - カテゴリ別件数の集計: `duckdb -c ".read scripts/compare_sources_by_category.sql"`。
 - 食品オープンデータ再現 MVP: `scripts/reproduce_food_opendata/`（Python、92 出典 → 統合。README 参照）。
+- **アクセス困難人口でのマスター検証**（fit-for-purpose 判定に使う本命の検証器）:
+  ```
+  python3 scripts/fetch_mesh_population.py 高知県 島根県 宮城県      # 500mメッシュ人口
+  python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県  # 圏外率＋農水省突合
+  ```
+  外部データは自動取得・キャッシュ（`data/mesh/` `data/boundary/` `data/maff_2020_table05.xlsx`、いずれも gitignore）。
+  詳細と判定結果は `docs/検証_アクセス困難人口_メッシュ単位.md`。
+- マスター再生成: `python3 scripts/build_food_store_master.py`（`data/japan_pref.geojson` は無ければ自動取得）。
