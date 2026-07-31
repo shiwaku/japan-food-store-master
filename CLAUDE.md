@@ -42,9 +42,13 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 ## 現状（データ）
 
-- **Phase1 マスター構築済み**: 約 103,230 店 / 農水省加重ベースの実質カバー率 93.5%。
+- **Phase1 マスター構築済み**: 約 102,984 店 / 農水省加重ベースの実質カバー率 93.5%。
 - マスター実体: `data/food_store_master.csv` / `.parquet`（列 `cat`, `name` 等）。カテゴリ別件数:
-  `convenience 54,793 / supermarket 30,638 / fresh_food 10,070 / drugstore 7,729`。
+  `convenience 54,792 / supermarket 30,638 / fresh_food 10,070 / drugstore 7,484`。
+- **調剤専業は除外済み**（2026-07-31・246件）。判定は `scripts/food_store_rules.py` に置き、
+  構築（`build_food_store_master.py`）と検証（`verify_master_quality.py`）が**共有**する。
+  名称ベースの判定なので、**食品を扱う地方ドラッグストアを巻き添えにしないためのチェーン名リストが本体**
+  （レデイ・ウォンツ・ヤックス・セイムス・杏林堂・ウェルネス 等）。新しいチェーンを見つけたらここに足す。
 
 ### ⚠️ 加重カバー率（93.5%）を fit-for-purpose の根拠に使わないこと
 
@@ -123,6 +127,10 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 - **WSL では vite の HMR が `/mnt/c` 配下の変更を拾わないことがある**。挙動が変わらないときは dev サーバーを再起動して、`curl http://localhost:PORT/.../src/main.ts` で配信内容を確認する。
 
 ## 落とし穴・環境メモ
+
+- **除外ルールを `where not (…)` で書くと NULL 行が黙って消える**。`name` が NULL だと `ilike` が
+  NULL を返し `not (NULL)` は真にならないため、名称欠損の 495 件が丸ごと落ちた（件数が合わずに発覚）。
+  除外述語は必ず `coalesce(…, false)` で包む。
 
 - **DuckDB spheroid バグ**: この環境では `ST_Distance_Spheroid` / `ST_DWithin_Spheroid` が `-nan` を返して使えない。距離は等距円筒近似（緯度補正した平面距離）で代替する。
 - **Overture の bbox 抽出は国外を含む**: `data/overture_food_full_jp.parquet`（246,400 件）は日本の bbox 抽出で韓国・ロシア等を含む。日本のみは `country = 'JP'`（234,077 件）で絞る。
