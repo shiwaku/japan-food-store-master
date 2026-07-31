@@ -1,55 +1,90 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>食品店POI比較: OSM vs Overture</title>
-<meta name="description" content="農水省「食料品アクセス」定義準拠の食品店POIを、OSMとOverture Placesで網羅性比較" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="食品店POI比較" />
-<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>食品店POI比較: OSM vs Overture</title>
+  <meta name="description" content="農水省「食料品アクセス」定義準拠の食品店POIを、OSMとOverture Placesで網羅性比較" />
+  <meta name="theme-color" content="#2a78d6" />
+  <link rel="icon" type="image/png" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="食品店POI比較" />
 </head>
 <body>
-<div id="map"></div>
+  <div id="map"></div>
 
-<button id="panel-open" aria-label="パネルを開く">☰ 表示設定</button>
+  <section id="panel" class="panel" aria-label="コントロールパネル">
+    <header class="panel-head">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">🛒</span>
+        <h1>食品店POI比較</h1>
+      </div>
+      <div class="head-actions">
+        <button id="theme-btn" class="icon-btn" type="button" title="テーマ切替" aria-label="テーマ切替"></button>
+        <button id="collapse-btn" class="icon-btn" type="button" title="パネル開閉" aria-label="パネル開閉"></button>
+      </div>
+    </header>
 
-<div id="panel">
-  <div id="panel-head">
-    <h1>食品店POI比較</h1>
-    <button id="panel-close" aria-label="パネルを閉じる">✕</button>
-  </div>
-  <div id="panel-body">
-    <div class="row">
-      <input type="checkbox" id="t-ovt" checked>
-      <span class="sw ovt"></span>
-      <label for="t-ovt">Overture Maps (<span id="cnt-ovt">109,602</span>・名寄せ済)</label>
-    </div>
-    <div class="row">
-      <input type="checkbox" id="t-osm" checked>
-      <span class="sw osm"></span>
-      <label for="t-osm">OpenStreetMap (<span id="cnt-osm">81,380</span>)</label>
-    </div>
-    <div class="row-cat">
-      <span>カテゴリ:</span>
-      <select id="cat">
-        <option value="all">すべて</option>
-        <option value="super">スーパー</option>
-        <option value="conv">コンビニ</option>
-        <option value="drug">ドラッグストア</option>
-        <option value="grocery">食料品店</option>
-        <option value="fresh">生鮮専門店・直売所</option>
-      </select>
-    </div>
-    <div class="note">
-      対象: スーパー・コンビニ・ドラッグストア・食料品店・生鮮専門店（青果／精肉／鮮魚）・直売所（農水省「食料品アクセス」定義準拠）。調剤薬局・100均・ディスカウント・百貨店は除外。
-      Overtureはコンビニの重複レコード（同一店舗が提供元ごとに別登録）を名寄せ済み（171,180→109,602件）。
-      重なりを見るには片方だけ表示。クリックで店名表示。
-    </div>
-  </div>
-</div>
+    <div id="panel-body" class="panel-body">
+      <div class="field">
+        <div class="field-head">
+          <span class="field-label">表示</span>
+        </div>
+        <div id="mode" class="seg" role="group" aria-label="表示モード">
+          <button type="button" data-mode="source" aria-selected="true">ソース別</button>
+          <button type="button" data-mode="category" aria-selected="false">カテゴリ別</button>
+        </div>
+      </div>
 
-<script type="module" src="/src/main.ts"></script>
+      <div id="cat-legend" class="field" hidden>
+        <span class="field-label">凡例</span>
+        <div class="legend"></div>
+        <p class="note">ズーム13以上でカテゴリのピンに切り替わります。</p>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <span class="field-label">カテゴリ</span>
+        </div>
+        <div id="cats" class="chips" role="group" aria-label="カテゴリ絞り込み"></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <span class="field-label">データソース</span>
+          <div class="field-actions">
+            <button id="all-on" class="mini-btn" type="button">全ON</button>
+            <button id="all-off" class="mini-btn" type="button">全OFF</button>
+          </div>
+        </div>
+        <div id="layers" class="toggles"></div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">対象</span>
+        <p class="note">
+          スーパー・コンビニ・ドラッグストア・食料品店・生鮮専門店（青果／精肉／鮮魚）・直売所。
+          農水省「食料品アクセス」定義準拠で、調剤薬局・100均・ディスカウント・百貨店は除外。
+          Overture はコンビニの重複レコード（同一店舗が提供元ごとに別登録）を名寄せ済み（171,180 → 109,602 件）。
+          重なりを見るには片方だけ表示。点をクリックで詳細。
+        </p>
+      </div>
+    </div>
+
+    <footer class="panel-foot">
+      データ: <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps</a> ／
+      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>（ODbL）<br />
+      定義: 農林水産省<a href="https://www.maff.go.jp/j/shokusan/eat/access_genjo.html" target="_blank" rel="noopener">「食料品アクセス」</a><br />
+      背景: 国土地理院 最適化ベクトルタイル／全国最新写真<br />
+      アイコン: <a href="https://github.com/shiwaku/custom-smartmap-sprite" target="_blank" rel="noopener">custom-smartmap-sprite</a><br />
+      <a href="https://github.com/shiwaku/japan-food-store-master" target="_blank" rel="noopener">GitHub</a>
+      <span id="build-ver" class="build-ver"></span>
+    </footer>
+  </section>
+
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

@@ -5,6 +5,9 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig({
   base: "/japan-food-store-master/",
   // エントリは viewer/index.html（Vite 既定）。
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC"),
+  },
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
@@ -25,8 +28,8 @@ export default defineConfig({
         start_url: "./index.html",
         scope: "./",
         display: "standalone",
-        background_color: "#f5f5f0",
-        theme_color: "#1c7ed6",
+        background_color: "#ffffff",
+        theme_color: "#2a78d6",
         lang: "ja",
         icons: [
           { src: "./icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
