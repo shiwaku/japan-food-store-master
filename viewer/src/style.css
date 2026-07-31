@@ -635,9 +635,13 @@ body {
     transition: margin-bottom 0.2s ease;
   }
 
-  /* 横並びのパネルではないので、デスクトップ用の左オフセットは打ち消す */
+  /* 横並びのパネルではないので、デスクトップ用の左オフセットは打ち消す。
+     さらに、帰属表示（bottom-right）がモバイルでは画面幅いっぱいの複数行になり
+     スケールバーがその裏に入って読めないため、帰属表示の実高さぶん余分に上げる。
+     --attrib-h は main.ts が ResizeObserver で実測して更新する（ⓘ の開閉に追従）。 */
   .maplibregl-ctrl-bottom-left {
     margin-left: 0;
+    margin-bottom: calc(var(--panel-h, 64px) + var(--attrib-h, 0px) + 12px);
   }
 
   /* タッチ操作しやすいよう当たり判定を拡大 */
