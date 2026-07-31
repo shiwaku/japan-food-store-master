@@ -11,6 +11,8 @@
   --hover: rgba(20, 22, 26, 0.05);
   --shadow: 0 10px 30px -10px rgba(16, 24, 40, 0.35), 0 2px 8px -4px rgba(16, 24, 40, 0.2);
   --radius-sm: 10px;
+  /* サイドパネルの幅。地図コントロールをパネルの外へ逃がすのにも使う */
+  --panel-w: 300px;
   color-scheme: light;
 }
 
@@ -63,7 +65,7 @@ body {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  width: 300px;
+  width: var(--panel-w);
   max-width: 88vw;
   background: var(--surface-solid);
   border-right: 1px solid var(--line);
@@ -586,6 +588,12 @@ body {
   font-size: 10px;
 }
 
+/* サイドパネルは全高固定なので、bottom-left のスケールバーがパネルの裏に完全に
+   隠れてしまう。パネル幅ぶん右へ逃がして地図の左下に出す。 */
+.maplibregl-ctrl-bottom-left {
+  margin-left: var(--panel-w);
+}
+
 /* ---- レスポンシブ（モバイルはボトムシート） ---- */
 @media (max-width: 640px) {
   .panel {
@@ -616,10 +624,20 @@ body {
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* 畳んだパネルのヘッダ分だけ、地図コントロールを持ち上げる */
+  /* ボトムシートの実高さぶん、地図コントロールを持ち上げる。固定値だと展開時に
+     背景スイッチャー・スケールバー・帰属表示がシートの下敷きになり、見えないうえ
+     クリックも奪われる（パネル側の要素が pointer events を取る）。
+     --panel-h は main.ts が ResizeObserver で実測して更新する。
+     safe-area はパネル自身が bottom:0 で吸収済みなのでここでは足さない。 */
   .maplibregl-ctrl-bottom-right,
   .maplibregl-ctrl-bottom-left {
-    margin-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    margin-bottom: calc(var(--panel-h, 64px) + 8px);
+    transition: margin-bottom 0.2s ease;
+  }
+
+  /* 横並びのパネルではないので、デスクトップ用の左オフセットは打ち消す */
+  .maplibregl-ctrl-bottom-left {
+    margin-left: 0;
   }
 
   /* タッチ操作しやすいよう当たり判定を拡大 */
