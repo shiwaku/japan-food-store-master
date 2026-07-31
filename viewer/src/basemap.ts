@@ -86,6 +86,29 @@ function buildDarkStyle(): StyleSpecification {
 
 export type Basemap = "pale" | "photo";
 
+// ---- 食料品店アイコンのスプライト ----
+// MapLibre は sprite を配列で複数指定できる。接頭辞なしで参照できるのは id 'default' の
+// スプライトだけなので、アイコンを接頭辞なしで参照している地理院スタイル側を 'default' に
+// 据え、追加分は `<id>:<アイコン名>` で参照する。背景（淡色／写真／ダーク）を切り替えても
+// ピンが出るよう、スタイルを返す直前に必ず注入する。
+const FOOD_SPRITE_URL = "https://shiwaku.github.io/custom-smartmap-sprite/sprite";
+export const FOOD_SPRITE_ID = "smartmap";
+
+interface SpriteEntry {
+  id: string;
+  url: string;
+}
+
+function withFoodSprite(style: StyleSpecification): StyleSpecification {
+  const base = style.sprite;
+  const list: SpriteEntry[] = [];
+  if (typeof base === "string") list.push({ id: "default", url: base });
+  else if (Array.isArray(base)) list.push(...(base as SpriteEntry[]));
+  if (list.some((s) => s.id === FOOD_SPRITE_ID)) return style;
+  list.push({ id: FOOD_SPRITE_ID, url: FOOD_SPRITE_URL });
+  return { ...style, sprite: list } as StyleSpecification;
+}
+
 let lightStyleCache: StyleSpecification | null = null;
 let darkStyleCache: StyleSpecification | null = null;
 
@@ -109,12 +132,12 @@ function photoStyle(): StyleSpecification {
 }
 
 export function getBasemapStyle(base: Basemap, theme: Theme): StyleSpecification {
-  if (base === "photo") return photoStyle();
+  if (base === "photo") return withFoodSprite(photoStyle());
   if (theme === "dark") {
-    if (!darkStyleCache) darkStyleCache = buildDarkStyle();
+    if (!darkStyleCache) darkStyleCache = withFoodSprite(buildDarkStyle());
     return darkStyleCache;
   }
-  if (!lightStyleCache) lightStyleCache = paleStyle as unknown as StyleSpecification;
+  if (!lightStyleCache) lightStyleCache = withFoodSprite(paleStyle as unknown as StyleSpecification);
   return lightStyleCache;
 }
 

@@ -2,8 +2,19 @@ import maplibregl from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { getBasemapStyle, haloColor, type Basemap } from "./basemap";
-import { CATEGORIES, SOURCES, countOf, popupHtml, type SourceDef } from "./layers";
+import { FOOD_SPRITE_ID, getBasemapStyle, haloColor, type Basemap } from "./basemap";
+import {
+  CATEGORIES,
+  PIN_MINZOOM,
+  SOURCES,
+  STYLED_CATEGORIES,
+  catColorExpr,
+  catIconExpr,
+  countOf,
+  popupHtml,
+  type Mode,
+  type SourceDef,
+} from "./layers";
 import { applyThemeAttr, initialTheme, type Theme } from "./theme";
 import "./style.css";
 
@@ -18,6 +29,7 @@ const DATA_ATTRIBUTION = [
 let theme: Theme = initialTheme();
 let base: Basemap = "pale";
 let cat = "all";
+let mode: Mode = "source";
 applyThemeAttr(theme);
 
 const isMobile = window.matchMedia("(max-width: 640px)").matches;
@@ -55,41 +67,77 @@ map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribut
 
 // ---- データレイヤー ----
 
-const layerId = (key: string): string => `${key}-pt`;
-const defOf = (id: string): SourceDef | undefined => SOURCES.find((s) => layerId(s.key) === id);
+// ソース1つにつき丸点レイヤー（全ズーム or 低ズーム）とピンレイヤー（カテゴリ別の
+// 高ズームのみ）を持つ。どちらの id も `<ソースkey>-` で始める。
+const circleId = (key: string): string => `${key}-pt`;
+const pinId = (key: string): string => `${key}-pin`;
+const defOf = (id: string): SourceDef | undefined => SOURCES.find((s) => id.startsWith(`${s.key}-`));
+const layerIdsOf = (def: SourceDef): string[] => [circleId(def.key), pinId(def.key)];
 const activeLayerIds = (): string[] =>
-  SOURCES.filter((s) => s.on).map((s) => layerId(s.key)).filter((id) => map.getLayer(id));
+  SOURCES.filter((s) => s.on).flatMap(layerIdsOf).filter((id) => map.getLayer(id));
 
 const catFilter = (): maplibregl.FilterSpecification | null =>
   cat === "all" ? null : ["==", ["get", "cat"], cat];
 
 function ensureLayer(def: SourceDef): void {
-  if (map.getLayer(layerId(def.key))) return;
   if (!map.getSource(def.key)) {
     map.addSource(def.key, { type: "vector", url: `pmtiles://./${def.file}` });
   }
   // filter は「無し」を undefined で渡すと MapLibre のバリデーションが落ちるため、
   // 全カテゴリ表示のときはキー自体を持たせない。
   const f = catFilter();
-  const spec: maplibregl.CircleLayerSpecification = {
-    id: layerId(def.key),
-    type: "circle",
-    source: def.key,
-    "source-layer": def.sourceLayer,
-    paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 12, 4, 16, 6],
-      "circle-color": def.color,
-      "circle-opacity": def.opacity,
-      "circle-stroke-width": 0.4,
-      "circle-stroke-color": haloColor(base, theme),
-    },
-  };
-  if (f) spec.filter = f;
-  map.addLayer(spec);
+
+  if (!map.getLayer(circleId(def.key))) {
+    const spec: maplibregl.CircleLayerSpecification = {
+      id: circleId(def.key),
+      type: "circle",
+      source: def.key,
+      "source-layer": def.sourceLayer,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 12, 4, 16, 6],
+        "circle-color": mode === "category" ? catColorExpr() : def.color,
+        "circle-opacity": def.opacity,
+        "circle-stroke-width": 0.4,
+        "circle-stroke-color": haloColor(base, theme),
+      },
+    };
+    // カテゴリ別は高ズームでピンに引き継ぐので、丸点は PIN_MINZOOM まで
+    if (mode === "category") spec.maxzoom = PIN_MINZOOM;
+    if (f) spec.filter = f;
+    map.addLayer(spec);
+  }
+
+  if (mode === "category" && !map.getLayer(pinId(def.key))) {
+    const spec: maplibregl.SymbolLayerSpecification = {
+      id: pinId(def.key),
+      type: "symbol",
+      source: def.key,
+      "source-layer": def.sourceLayer,
+      minzoom: PIN_MINZOOM,
+      layout: {
+        "icon-image": catIconExpr(FOOD_SPRITE_ID),
+        // スプライトは 75×90px のピン。等倍だと大きすぎるので縮小して足元を座標に合わせる
+        "icon-size": ["interpolate", ["linear"], ["zoom"], PIN_MINZOOM, 0.28, 17, 0.44],
+        "icon-anchor": "bottom",
+        // 重なりは衝突判定に任せて間引く（密集地でピンが潰れるのを防ぐ）
+        "icon-allow-overlap": false,
+      },
+      paint: { "icon-opacity": def.opacity },
+    };
+    if (f) spec.filter = f;
+    map.addLayer(spec);
+  }
+}
+
+/** 地図上のレイヤーだけ外す（ソースは残すのでモード切替が速い）。 */
+function removeMapLayers(def: SourceDef): void {
+  for (const id of layerIdsOf(def)) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
 }
 
 function removeLayer(def: SourceDef): void {
-  if (map.getLayer(layerId(def.key))) map.removeLayer(layerId(def.key));
+  removeMapLayers(def);
   if (map.getSource(def.key)) map.removeSource(def.key);
 }
 
@@ -133,6 +181,41 @@ collapseBtn.addEventListener("click", () => {
   renderCollapseBtn();
 });
 
+// ---- 表示モード（ソース別／カテゴリ別） ----
+
+const modeSeg = document.getElementById("mode") as HTMLElement;
+const catLegend = document.getElementById("cat-legend") as HTMLElement;
+
+function buildLegend(): void {
+  const box = catLegend.querySelector(".legend") as HTMLElement;
+  for (const c of STYLED_CATEGORIES) {
+    const row = document.createElement("span");
+    row.className = "legend-row";
+    const sw = document.createElement("span");
+    sw.className = "legend-sw";
+    sw.style.background = c.color;
+    row.append(sw, document.createTextNode(c.label));
+    box.append(row);
+  }
+}
+
+function setMode(next: Mode): void {
+  if (next === mode) return;
+  mode = next;
+  panel.dataset.mode = mode;
+  for (const btn of modeSeg.querySelectorAll<HTMLButtonElement>("button")) {
+    btn.setAttribute("aria-selected", String(btn.dataset.mode === mode));
+  }
+  catLegend.hidden = mode !== "category";
+  // 丸点の色も maxzoom も変わるので、レイヤーは作り直す（ソースは残るので速い）
+  for (const def of SOURCES) removeMapLayers(def);
+  addDataLayers();
+}
+
+for (const btn of modeSeg.querySelectorAll<HTMLButtonElement>("button")) {
+  btn.addEventListener("click", () => setMode(btn.dataset.mode as Mode));
+}
+
 // ---- カテゴリチップ（単一選択） ----
 
 const catsDiv = document.getElementById("cats") as HTMLElement;
@@ -157,7 +240,9 @@ function setCategory(next: string): void {
   }
   const f = catFilter();
   for (const def of SOURCES) {
-    if (map.getLayer(layerId(def.key))) map.setFilter(layerId(def.key), f);
+    for (const id of layerIdsOf(def)) {
+      if (map.getLayer(id)) map.setFilter(id, f);
+    }
   }
   renderCounts();
 }
@@ -247,8 +332,8 @@ function setSourceVisible(def: SourceDef, on: boolean): void {
 
 function setSourceOpacity(def: SourceDef, v: number): void {
   def.opacity = v;
-  const id = layerId(def.key);
-  if (map.getLayer(id)) map.setPaintProperty(id, "circle-opacity", v);
+  if (map.getLayer(circleId(def.key))) map.setPaintProperty(circleId(def.key), "circle-opacity", v);
+  if (map.getLayer(pinId(def.key))) map.setPaintProperty(pinId(def.key), "icon-opacity", v);
 }
 
 function setAll(on: boolean): void {
@@ -322,7 +407,7 @@ map.on("click", (e) => {
   if (!def) return;
   new maplibregl.Popup({ closeButton: true, maxWidth: "280px", offset: 8 })
     .setLngLat(e.lngLat)
-    .setHTML(popupHtml(def, f.properties as Record<string, unknown>))
+    .setHTML(popupHtml(def, f.properties as Record<string, unknown>, mode))
     .addTo(map);
 });
 
@@ -331,6 +416,8 @@ map.on("click", (e) => {
 const buildEl = document.getElementById("build-ver");
 if (buildEl) buildEl.textContent = `build: ${__BUILD_TIME__}`;
 renderThemeBtn();
+panel.dataset.mode = mode;
+buildLegend();
 buildChips();
 buildToggles();
 renderCounts();

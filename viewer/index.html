@@ -31,6 +31,22 @@
     <div id="panel-body" class="panel-body">
       <div class="field">
         <div class="field-head">
+          <span class="field-label">表示</span>
+        </div>
+        <div id="mode" class="seg" role="group" aria-label="表示モード">
+          <button type="button" data-mode="source" aria-selected="true">ソース別</button>
+          <button type="button" data-mode="category" aria-selected="false">カテゴリ別</button>
+        </div>
+      </div>
+
+      <div id="cat-legend" class="field" hidden>
+        <span class="field-label">凡例</span>
+        <div class="legend"></div>
+        <p class="note">ズーム13以上でカテゴリのピンに切り替わります。</p>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
           <span class="field-label">カテゴリ</span>
         </div>
         <div id="cats" class="chips" role="group" aria-label="カテゴリ絞り込み"></div>
@@ -63,6 +79,7 @@
       <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>（ODbL）<br />
       定義: 農林水産省<a href="https://www.maff.go.jp/j/shokusan/eat/access_genjo.html" target="_blank" rel="noopener">「食料品アクセス」</a><br />
       背景: 国土地理院 最適化ベクトルタイル／全国最新写真<br />
+      アイコン: <a href="https://github.com/shiwaku/custom-smartmap-sprite" target="_blank" rel="noopener">custom-smartmap-sprite</a><br />
       <a href="https://github.com/shiwaku/japan-food-store-master" target="_blank" rel="noopener">GitHub</a>
       <span id="build-ver" class="build-ver"></span>
     </footer>

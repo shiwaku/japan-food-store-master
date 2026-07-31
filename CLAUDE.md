@@ -103,6 +103,15 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
   に合わせた作り（CSS変数のライト/ダーク、デスクトップ＝全高サイドパネル／モバイル＝ボトムシート、
   トグルスイッチ、背景切替（地図/写真）、不透明度スライダー）。
 - カテゴリ絞り込みでソース別件数が連動する。**件数は `viewer/src/layers.ts` の `COUNTS` にハードコード**（pmtiles は tippecanoe の間引きで実行時カウント不可のため）。pmtiles を再生成したら `scripts/compare_sources_by_category.sql` で件数を出し直して `COUNTS` を更新すること。
+- **表示モードが2つある**（`viewer/src/layers.ts` の `Mode`）。
+  - `source`（既定）: 色＝データソース（Overture 青／OSM 橙）。OSM vs Overture の比較用。
+  - `category`: 色＝業態。z<13 はカテゴリ色の丸点、**z≥13 は
+    [shiwaku/custom-smartmap-sprite](https://github.com/shiwaku/custom-smartmap-sprite) のピン**
+    （`food-supermarket` `food-convenience` `food-drugstore` `food-grocery` `food-fresh`、MIT / Geolonia）。
+  - **カテゴリ色はスプライトのアイコン色と手動同期**（`CATEGORIES` の `color`）。アイコンの色を変えたら
+    `layers.ts` も直すこと。スプライトは `basemap.ts` の `withFoodSprite()` が全背景スタイルに注入する
+    （MapLibre の複数スプライトは、接頭辞なしで引けるのは id `default` だけなので地理院側を `default` に据え、
+    追加分は `smartmap:<アイコン名>` で参照する）。
 
 ### viewer の落とし穴（参考実装から引き継いだもの）
 
