@@ -126,7 +126,13 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 - **DuckDB spheroid バグ**: この環境では `ST_Distance_Spheroid` / `ST_DWithin_Spheroid` が `-nan` を返して使えない。距離は等距円筒近似（緯度補正した平面距離）で代替する。
 - **Overture の bbox 抽出は国外を含む**: `data/overture_food_full_jp.parquet`（246,400 件）は日本の bbox 抽出で韓国・ロシア等を含む。日本のみは `country = 'JP'`（234,077 件）で絞る。
-- **pmtiles は低ズームで点が間引かれる**（`--drop-densest-as-needed`）。地図上の描画数＝実データ件数ではない。
+- **pmtiles の間引きは低ズームだけ**。`-r1`（droprate 1）でレート間引きは無効化してあり、
+  `--drop-densest-as-needed` はタイルがサイズ上限を超えたときしか発動しない。実績（pmtiles の
+  `strategies` メタデータで確認可能）は **Overture が z0–z8 のみ**（z8 で 19,273件）、**OSM は全ズームで未発動**。
+  **z9 以上は両ソースとも全点保持**で、maxzoom 12 のタイルを z13 以上でオーバーズームするため
+  拡大時も欠けない（渋谷の z12 タイルで実測 1,522 features / 同 bbox の元データ 1,440 件＝タイルバッファ分だけ多い）。
+  低ズームでは「地図上の描画数＝実データ件数」にならない点だけ注意。
+  なお**カテゴリ別モードのピンが間引かれて見えるのは MapLibre のシンボル衝突判定**で、タイル側の間引きとは別。
 - DuckDB CLI: `/home/shi-works/.duckdb/cli/latest/duckdb`。
 - **DuckDB の `/` は DOUBLE を返し `::int` が四捨五入する**。メッシュ添字等の整数除算は必ず `//` を使う（`(m-1)/2` で m=2 が 0.5→1 に丸められ別メッシュと衝突した）。
 - **`ST_Read` の戻り型は `GEOMETRY('EPSG:4612')`** で、そのままでは rtree インデックスが作れない。`geom::GEOMETRY` で素の型に落とす。
@@ -136,7 +142,11 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 ## 再現の要点
 
-- Overture 比較用 pmtiles 再生成: `bash scripts/build_pmtiles.sh`（`data/overture_food_deduped_jp.parquet` → `viewer/public/overture_food.pmtiles`、tippecanoe 必要）。
+- 比較用 pmtiles 再生成: `bash scripts/build_pmtiles.sh [overture|osm|all]`（既定 all、tippecanoe 必要）。
+  `data/overture_food_deduped_jp.parquet` → `viewer/public/overture_food.pmtiles`、
+  `data/osm_food_stores_japan.tsv` → `viewer/public/osm_food.pmtiles`。
+  **cat のバケット定義は `scripts/compare_sources_by_category.sql` と一致させること**
+  （viewer の `COUNTS` はあの SQL の出力なので、定義がズレると表示件数とタイルの中身が食い違う）。
 - カテゴリ別件数の集計: `duckdb -c ".read scripts/compare_sources_by_category.sql"`。
 - 食品オープンデータ再現 MVP: `scripts/reproduce_food_opendata/`（Python、92 出典 → 統合。README 参照）。
 - **アクセス困難人口でのマスター検証**（fit-for-purpose 判定に使う本命の検証器）:

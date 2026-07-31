@@ -229,7 +229,7 @@ curl -A "japan-mobility-ease-diagnosis (contact: ...)" \
 | ファイル | 内容 |
 |---|---|
 | `overture_food.pmtiles` | Overture 170,899件（JP・食料品系のみ・100均/百貨店/証明写真機除外） |
-| `osm_food.pmtiles` | OSM 81,363件（食料品タグのみ） |
+| `osm_food.pmtiles` | OSM 81,380件（食料品タグのみ）※2026-07-31 に再生成。旧版は 81,363件で、バケット定義が `compare_sources_by_category.sql` より狭く（drug が `chemist` のみ等）表示件数と食い違っていた |
 | `compare.html` → `src/compare.ts` | MapLibre比較ビューワー（Vite+TS） |
 | `compare_overview_jp2.png` | 全国分布の静的比較画像 |
 
