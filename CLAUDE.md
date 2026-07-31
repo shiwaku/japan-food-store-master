@@ -16,9 +16,13 @@ scripts/     構築パイプライン（DuckDB SQL / Python / 食品オープン
 docs/        網羅性検証・データ設計・ライセンス調査（分析の一次記録。まずここを読む）
 data/        成果物・中間データ（大容量・生データは .gitignore。qml のみ追跡）
 viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre GL / PMTiles）
-  index.html   エントリ
-  src/main.ts  アプリ本体
-  public/      公開用 PMTiles・ベースマップスタイル(pale.json)・アイコン
+  index.html          パネルの静的マークアップ（中身は main.ts が生成）
+  src/main.ts         アプリ本体（地図・UI 配線）
+  src/layers.ts       ソース/カテゴリ/件数(COUNTS)/ポップアップの定義
+  src/basemap.ts      淡色↔写真の切替とダークスタイル生成（明度反転）
+  src/theme.ts        ライト/ダークの保存と <html data-theme>
+  src/pale-style.json 地理院 最適化ベクトルタイル 淡色スタイル（ダーク化のため src に置く）
+  public/             公開用 PMTiles・アイコン
 .github/workflows/deploy.yml  viewer を GitHub Pages へ自動デプロイ
 ```
 
@@ -94,7 +98,20 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
   npm run build    # dist/ 生成
   ```
 - デプロイ: `viewer/**` を含む push が main に入ると GitHub Actions が自動デプロイ（Pages ソースは GitHub Actions）。
-- カテゴリ絞り込みで上部の件数が連動する。**件数は `viewer/src/main.ts` の `COUNTS` にハードコード**（pmtiles は tippecanoe の間引きで実行時カウント不可のため）。pmtiles を再生成したら `scripts/compare_sources_by_category.sql` で件数を出し直して `COUNTS` を更新すること。
+- UI は `japan-mobility-ease-diagnosis` 系の
+  [mlit-urban-planning-converter/viewer](https://github.com/shiwaku/mlit-urban-planning-converter/tree/main/viewer)
+  に合わせた作り（CSS変数のライト/ダーク、デスクトップ＝全高サイドパネル／モバイル＝ボトムシート、
+  トグルスイッチ、背景切替（地図/写真）、不透明度スライダー）。
+- カテゴリ絞り込みでソース別件数が連動する。**件数は `viewer/src/layers.ts` の `COUNTS` にハードコード**（pmtiles は tippecanoe の間引きで実行時カウント不可のため）。pmtiles を再生成したら `scripts/compare_sources_by_category.sql` で件数を出し直して `COUNTS` を更新すること。
+
+### viewer の落とし穴（参考実装から引き継いだもの）
+
+- **`backdrop-filter`（すりガラス）は使わない**。内部スクロールを持つパネルで実GPUの合成不具合が出る（白化・欠け）。背景は不透明にする。
+- **パネルは `top:0`＋`bottom:0` で全高固定**。`height:auto` にすると内容が画面より低いとき下端が動く。モバイル（`top:auto`）で畳むときは `bottom:0` を明示しないとパネルが画面最上部へ飛ぶ。
+- **checkbox は `position:absolute` で視覚非表示にし、必ず `.toggle` ラベル内に閉じ込める**。パネル外が基準になるとフォーカス移動でパネルのスクロールが壊れる。
+- **MapLibre 5 は `filter: undefined` を明示的に渡すとバリデーションで落ちる**（`array expected, undefined found`）。フィルタ無しはキー自体を持たせない。
+- **背景の差し替えは `setStyle(..., {diff:false})` ＋ `once('idle')` で再追加**。ラスタ（写真）↔ベクタ（淡色）は diff 適用が効かない。
+- **WSL では vite の HMR が `/mnt/c` 配下の変更を拾わないことがある**。挙動が変わらないときは dev サーバーを再起動して、`curl http://localhost:PORT/.../src/main.ts` で配信内容を確認する。
 
 ## 落とし穴・環境メモ
 
