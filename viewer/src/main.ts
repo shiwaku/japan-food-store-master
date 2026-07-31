@@ -181,6 +181,16 @@ collapseBtn.addEventListener("click", () => {
   renderCollapseBtn();
 });
 
+// パネルの実高さを --panel-h に公開する。モバイル（ボトムシート）では地図コントロールを
+// この高さだけ持ち上げて、背景スイッチャー・スケールバー・帰属表示がシートの下敷きに
+// ならないようにする（CSS 側で使用）。開閉・表示モード切替・画面回転で高さが変わるため
+// 固定値ではなく実測を流す。
+const publishPanelHeight = (): void => {
+  document.documentElement.style.setProperty("--panel-h", `${Math.round(panel.offsetHeight)}px`);
+};
+publishPanelHeight();
+new ResizeObserver(publishPanelHeight).observe(panel);
+
 // ---- 表示モード（ソース別／カテゴリ別） ----
 
 const modeSeg = document.getElementById("mode") as HTMLElement;
