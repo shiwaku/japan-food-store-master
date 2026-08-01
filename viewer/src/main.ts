@@ -29,7 +29,7 @@ const DATA_ATTRIBUTION = [
 let theme: Theme = initialTheme();
 let base: Basemap = "pale";
 let cat = "all";
-let mode: Mode = "source";
+let mode: Mode = "category";
 applyThemeAttr(theme);
 
 const isMobile = window.matchMedia("(max-width: 640px)").matches;
@@ -117,12 +117,16 @@ function ensureLayer(def: SourceDef): void {
       layout: {
         "icon-image": catIconExpr(FOOD_SPRITE_ID),
         // スプライトは 75×90px のピン。等倍だと大きすぎるので縮小して足元を座標に合わせる
-        "icon-size": ["interpolate", ["linear"], ["zoom"], PIN_MINZOOM, 0.28, 17, 0.44],
+        // （z13 で 30×36px、z17 で 42×50px 相当）
+        "icon-size": ["interpolate", ["linear"], ["zoom"], PIN_MINZOOM, 0.4, 17, 0.56],
         "icon-anchor": "bottom",
-        // 重なりは衝突判定に任せて間引く（密集地でピンが潰れるのを防ぐ）
+        // 重なりは衝突判定に任せて間引く（密集地でピンが潰れるのを防ぐ）。
+        // アイコンを大きくすると衝突が増えて表示数が減るので、余白は詰めておく
         "icon-allow-overlap": false,
+        "icon-padding": 0,
       },
-      paint: { "icon-opacity": def.opacity },
+      // ピンは衝突判定で重ならないので、丸点のような「下のソースを透かす」用途がない。
+      // 半透明にすると背景が透けて色がくすむだけなので不透明度は掛けない。
     };
     if (f) spec.filter = f;
     map.addLayer(spec);
@@ -222,14 +226,19 @@ function buildLegend(): void {
   }
 }
 
-function setMode(next: Mode): void {
-  if (next === mode) return;
-  mode = next;
+/** モードに応じた UI（セグメント選択・凡例・ソース色ドット）を現在値に合わせる。 */
+function syncModeUi(): void {
   panel.dataset.mode = mode;
   for (const btn of modeSeg.querySelectorAll<HTMLButtonElement>("button")) {
     btn.setAttribute("aria-selected", String(btn.dataset.mode === mode));
   }
   catLegend.hidden = mode !== "category";
+}
+
+function setMode(next: Mode): void {
+  if (next === mode) return;
+  mode = next;
+  syncModeUi();
   // 丸点の色も maxzoom も変わるので、レイヤーは作り直す（ソースは残るので速い）
   for (const def of SOURCES) removeMapLayers(def);
   addDataLayers();
@@ -353,10 +362,10 @@ function setSourceVisible(def: SourceDef, on: boolean): void {
   item?.classList.toggle("off", !on);
 }
 
+/** 不透明度は丸点だけに掛ける（ピンは常に不透明。ensureLayer のコメント参照）。 */
 function setSourceOpacity(def: SourceDef, v: number): void {
   def.opacity = v;
   if (map.getLayer(circleId(def.key))) map.setPaintProperty(circleId(def.key), "circle-opacity", v);
-  if (map.getLayer(pinId(def.key))) map.setPaintProperty(pinId(def.key), "icon-opacity", v);
 }
 
 function setAll(on: boolean): void {
@@ -439,7 +448,7 @@ map.on("click", (e) => {
 const buildEl = document.getElementById("build-ver");
 if (buildEl) buildEl.textContent = `build: ${__BUILD_TIME__}`;
 renderThemeBtn();
-panel.dataset.mode = mode;
+syncModeUi();
 buildLegend();
 buildChips();
 buildToggles();
