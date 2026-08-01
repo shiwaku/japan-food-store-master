@@ -6,7 +6,10 @@
       data/japan_pref.geojson（無ければ dataofjapan/land から自動取得）
 出力: data/food_store_master.parquet (GeoParquet), data/food_store_master.csv
 """
-import duckdb, os, urllib.request
+import duckdb, os, sys, urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from food_store_rules import dispensing_only_sql  # noqa: E402
 
 PREF_GEOJSON = "data/japan_pref.geojson"
 PREF_URL = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
@@ -66,11 +69,23 @@ con.execute(f"""create table fr_osm as
   select * from fr_osm_all o
   where not exists (select 1 from fr_ov v where ST_DWithin(o.geom, v.geom, {DEDUP_DEG}))""")
 
-# ---- 統合 → 都道府県割当 → マスター出力 ----
-con.execute("""create table cand as
+# ---- 統合 → 調剤専業の除外 → 都道府県割当 → マスター出力 ----
+con.execute("""create table cand_all as
   select * from sm_ov union all select * from gc_uniq
   union all select * from cv union all select * from dg
   union all select * from fr_ov union all select * from fr_osm""")
+
+# 調剤薬局を除外（設計7章）。Overture は調剤薬局を drugstore に紛れ込ませており
+# カテゴリでは分離できないため名称で判定する。判定条件は scripts/food_store_rules.py
+# （検証スクリプトと共有。食品を扱うドラッグストアチェーンは巻き添えにしない）。
+PHARM = dispensing_only_sql("name")
+con.execute(f"create table cand as select * from cand_all where not {PHARM}")
+excluded = con.execute(f"select count(*) from cand_all where {PHARM}").fetchone()[0]
+print(f"調剤専業として除外: {excluded:,} 件")
+for cat, cnt in con.execute(
+        f"select cat, count(*) from cand_all where {PHARM} group by 1 order by 2 desc").fetchall():
+    print(f"  {cat:12s} {cnt:,}")
+
 con.execute(f"""create table master as
   select row_number() over () as store_id, c.cat, c.name, c.brand, c.src,
     p.pref as prefecture, ST_Y(c.geom) as lat, ST_X(c.geom) as lng, c.geom

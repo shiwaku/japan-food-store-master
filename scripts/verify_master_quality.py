@@ -12,13 +12,14 @@
 
 出力する指標
 ------------
-  ① カテゴリ別 全国カバー率（既存の 検証_マスターPhase1_都道府県別.csv を集計）
+  ① カテゴリ別 全国カバー率（分母の実数統計だけ 検証_マスターPhase1_都道府県別.csv から取り、
+     マスター件数はその場で数える）
   ② 単独店率（500m直線以内に他の食料品店が無い店舗の割合）＝道路距離では上振れするので下限
   ③ 欠落の影響見積もり（不足数 × 単独店率）
   ④ 都道府県別 単独店率（欠落がどこで効くか）
   ⑤ 位置精度（同一コンビニの Overture 座標 vs OSM 座標のズレ分布）
   ⑥ 重複（名称一致・50m以内）
-  ⑦ 偽陽性（調剤専業の疑い・ノイズ名称・閉店の除外可否・confidence 分布）
+  ⑦ 偽陽性（調剤専業の取りこぼし・ノイズ名称・閉店の除外可否・confidence 分布）
   ⑧ 座標品質（代表点集積・粗座標・同一座標・名称欠損）
 
 距離は等距円筒近似（緯度補正した平面距離）。この環境の DuckDB は
@@ -33,6 +34,9 @@ import sys
 from collections import defaultdict
 
 import duckdb
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from food_store_rules import dispensing_only_sql  # noqa: E402
 
 MASTER = "data/food_store_master.parquet"
 OSM_TSV = "data/osm_food_stores_japan.tsv"
@@ -56,29 +60,27 @@ NOISE_NAME = """(name ilike '%カフェ%' or name ilike '%cafe%' or name ilike '
    or name ilike '%100円%' or name ilike '%ダイソー%' or name ilike '%居酒屋%'
    or name ilike '%ラーメン%')"""
 
-# 大手ドラッグストアチェーン（名称に「薬局」を含んでも食品を扱うので除外してはいけない）
-DRUG_CHAINS = [
-    "ウエルシア", "スギ", "ココカラ", "サンドラッグ", "マツモトキヨシ", "マツキヨ",
-    "ツルハ", "アオキ", "コスモス", "トモズ", "薬王堂", "ダイコク", "キリン堂",
-    "カワチ", "サツドラ", "クリエイト", "セイジョー", "ハックドラッグ", "ゲンキー",
-]
-
-
 def h(title):
     print(f"\n{'=' * 68}\n{title}\n{'=' * 68}")
 
 
-def coverage_from_csv():
-    """① 既存の県別検証CSVから全国カバー率を集計する。"""
+def coverage_from_csv(con):
+    """① 全国カバー率。
+
+    実数統計（分母＝業界実数・センサス等の外部数値）だけ県別検証CSVから読み、
+    **マスター件数はその場でマスターから数える**。CSV のマスター件数は構築時点の
+    スナップショットなので、除外ルールの追加などで再構築すると古くなる（実際、
+    調剤専業の除外前の値のままだと ① と ② で drugstore の総数が食い違った）。
+    """
     if not os.path.exists(PREF_CSV):
         print(f"  {PREF_CSV} が無いのでスキップ")
         return {}
     master, actual = defaultdict(int), defaultdict(int)
+    for cat, n in con.execute("select cat, count(*) from m group by 1").fetchall():
+        master[cat] = n
     with open(PREF_CSV, encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
-            cat = row["cat"]
-            master[cat] += int(row["マスター件数"])
-            actual[cat] += int(row["実数統計"])
+            actual[row["cat"]] += int(row["実数統計"])
     print(f"  {'cat':13s}{'マスター':>10s}{'実数':>10s}{'カバー率':>10s}{'不足':>10s}")
     short = {}
     for cat in sorted(master, key=lambda c: -master[c]):
@@ -104,7 +106,7 @@ def main():
     print(f"マスター {total:,} 店")
 
     h("① カテゴリ別 全国カバー率")
-    shortfall = coverage_from_csv()
+    shortfall = coverage_from_csv(con)
 
     h("② 単独店率（500m直線以内に他の食料品店が1軒も無い店舗）")
     print("  ※道路距離は直線距離以上なので、これは単独店率の下限")
@@ -183,14 +185,13 @@ def main():
         print(f"    {cat:13s}{c:>6,}")
 
     h("⑦ 偽陽性（実在しない／食品を扱わない店）")
-    chains = " or ".join(f"name ilike '%{c}%'" for c in DRUG_CHAINS)
-    yak, chain_hit = con.execute(f"""
-      select count(*), sum(case when {chains} then 1 else 0 end)
-      from m where cat='drugstore' and (name ilike '%薬局%' or name ilike '%調剤%')""").fetchone()
-    print(f"  drugstore で名称に薬局/調剤を含む: {yak:,}")
-    print(f"    うち大手チェーン名に一致（食品扱う正規店＝除外不可）: {chain_hit:,}")
-    print(f"    うち独立系（調剤専業の疑い＝偽陽性）: {yak - chain_hit:,} "
-          f"（マスターの {(yak-chain_hit)/total*100:.1f}%）")
+    yak, susp = con.execute(f"""
+      select count(*), sum(case when {dispensing_only_sql('name')} then 1 else 0 end)
+      from m where name ilike '%薬局%' or name ilike '%調剤%'""").fetchone()
+    print(f"  名称に薬局/調剤を含む: {yak:,}")
+    print(f"    うちドラッグストアと判定して残した分（食品を扱う正規店）: {yak - (susp or 0):,}")
+    print(f"    残っている調剤専業の疑い: {susp or 0:,} "
+          f"（マスターの {(susp or 0)/total*100:.2f}%。構築側で除外済みなら 0）")
     print("  ノイズ名称（カフェ/食堂/雑貨/100円 等）:")
     for cat, c in con.execute(
             f"select cat, count(*) from m where {NOISE_NAME} group by 1 order by 2 desc").fetchall():
