@@ -191,6 +191,19 @@ const publishPanelHeight = (): void => {
 publishPanelHeight();
 new ResizeObserver(publishPanelHeight).observe(panel);
 
+// 帰属表示の実高さを --attrib-h に公開する。モバイルでは帰属表示（bottom-right）が
+// 画面幅いっぱいの複数行になり、bottom-left のスケールバーがその裏に入って読めない。
+// CSS 側でスケールバーだけこの高さぶん余分に持ち上げる。ⓘ の開閉や画面回転で
+// 行数が変わるため実測を流す。
+const attrib = document.querySelector<HTMLElement>(".maplibregl-ctrl-attrib");
+if (attrib) {
+  const publishAttribHeight = (): void => {
+    document.documentElement.style.setProperty("--attrib-h", `${Math.round(attrib.offsetHeight)}px`);
+  };
+  publishAttribHeight();
+  new ResizeObserver(publishAttribHeight).observe(attrib);
+}
+
 // ---- 表示モード（ソース別／カテゴリ別） ----
 
 const modeSeg = document.getElementById("mode") as HTMLElement;
