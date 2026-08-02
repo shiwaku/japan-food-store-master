@@ -110,13 +110,15 @@ const esc = (s: string): string =>
   s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 
 /**
- * クリック時のポップアップ。属性は name / cat / cat_raw / confidence。
+ * クリック時のポップアップ。属性は name / addr / cat / cat_raw / confidence。
+ * addr は Overture のみ（OSM の元データが住所タグを持たない。build_pmtiles.sh 参照）。
  * カテゴリ別モードでは点の色がソースを表さないので、ソース色のドットは出さない。
  */
 export function popupHtml(def: SourceDef, p: Record<string, unknown>, mode: Mode): string {
   const name = (p.name as string) || "(名称なし)";
   const cat = (p.cat as string) ?? "";
   const rows: string[] = [];
+  if (p.addr) rows.push(`<dt>住所</dt><dd class="pp-addr">${esc(String(p.addr))}</dd>`);
   rows.push(`<dt>カテゴリ</dt><dd>${esc(CAT_LABEL[cat] ?? cat ?? "—")}</dd>`);
   if (p.cat_raw) rows.push(`<dt>原カテゴリ</dt><dd>${esc(String(p.cat_raw))}</dd>`);
   if (p.confidence != null) {
