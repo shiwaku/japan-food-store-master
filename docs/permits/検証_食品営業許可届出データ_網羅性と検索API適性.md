@@ -1,5 +1,7 @@
 # 検証：食品営業許可・届出データの網羅性と検索API適性
 
+> ⚠️ **検証用データ**。食品営業許可オープンデータは食料品店マスターに入っていない（マスターは Overture と OSM の2ソースのみ）。位置づけは [README.md](README.md) 参照。
+
 > 対象: 大橋本家 `japan-facilities-address` を完全再現実行して生成した `api/facilities-all.csv`
 > 実行日: 2026-07-18 ／ クローン先: `/mnt/c/Users/yshiw/Documents/GIS/japan-facilities-address`
 > 実行手順: `fetch-i2fas.mjs`(全157主体) → `crawl.js --allow-empty-sources`(ジオコーディングあり) → `build-merged-csv.js`
