@@ -1,5 +1,7 @@
 # 調査メモ：大橋さん本家 `japan-facilities-address` の取得構造と網羅性
 
+> ⚠️ **検証用データ**。食品営業許可オープンデータは食料品店マスターに入っていない（マスターは Overture と OSM の2ソースのみ）。位置づけは [README.md](README.md) 参照。
+
 > 対象リポジトリ: https://github.com/gl20percentclub/japan-facilities-address
 > 調査日: 2026-07-17 ／ 調査時点の README 統計: 2026-07-09
 > 位置づけ: 当プロジェクトの「食品オープンデータ再現パイプライン」(`scripts/reproduce_food_opendata/`) が

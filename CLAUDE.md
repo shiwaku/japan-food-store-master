@@ -80,13 +80,20 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 ## データソースと役割
 
+**マスターに入るのは Overture と OSM の2つだけ**。他は全部「検証用」で、マスターには投入しない。
+（実測: `data/food_store_master.parquet` の `src` 列は overture 97,600 / osm 5,384 の2値のみ）
+
 | ソース | 役割 | ライセンス |
 |---|---|---|
-| Overture Places | **位置の主ソース**（コンビニ・スーパー等） | CDLA-Permissive-2.0（Foursquare 由来分は Apache 2.0） |
-| OpenStreetMap | 位置の**補完**（生鮮・GMS 等）・比較対象 | **ODbL 1.0（継承あり）** |
-| 食品営業許可オープンデータ | クロス検証の一材料 | 各自治体（保健所）／**厚生労働省** FAS |
-| 経済センサス・商業動態統計（e-Stat） | 数量検証・カテゴリ別カバー率 | 政府標準利用規約 |
-| 業界実数（JFA・SM白書・JACDS 等） | 全国実数のクロスチェック | 各提供元 |
+| Overture Places | **構築**: 位置の主ソース（コンビニ・スーパー等） | CDLA-Permissive-2.0（Foursquare 由来分は Apache 2.0） |
+| OpenStreetMap | **構築**: 位置の補完（生鮮・GMS 等）・比較対象 | **ODbL 1.0（継承あり）** |
+| 食品営業許可オープンデータ | **検証のみ**（マスターに入らない） | 各自治体（保健所）／**厚生労働省** FAS |
+| 経済センサス・商業動態統計（e-Stat） | **検証のみ**: 数量検証・カテゴリ別カバー率 | 政府標準利用規約 |
+| 業界実数（JFA・SM白書・JACDS 等） | **検証のみ**: 全国実数のクロスチェック | 各提供元 |
+
+- **食品営業許可オープンデータを位置ソースに採らなかった理由**: 許可台帳であって施設マスタではない
+  （同一施設が業種ごとに複数行）／コンビニは実数の約半分（27,615 / 約56,000）。詳細は `docs/permits/`。
+  `scripts/reproduce_food_opendata/`（92出典の再現 MVP）も検証用の資産で、マスター構築パイプラインではない。
 
 - Overture を主にした理由・網羅性検証の数値・原典構成比（Meta 39.8% ほか）は README と `docs/master/設計_食料品店マスター構築.md` / `docs/sources/検証_食品店データ_OSM_vs_Overture.md` 参照。
 
