@@ -276,4 +276,4 @@ curl -A "japan-mobility-ease-diagnosis (contact: ...)" \
 
 ---
 
-*関連: [検証_食品店データ_OSM_vs_Overture.md](検証_食品店データ_OSM_vs_Overture.md)*
+*関連: [検証_食品店データ_OSM_vs_Overture.md](../sources/検証_食品店データ_OSM_vs_Overture.md)*

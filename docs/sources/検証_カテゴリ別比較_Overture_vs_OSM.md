@@ -55,5 +55,5 @@
 
 ---
 
-*関連: [検証_食品店データ_OSM_vs_Overture.md](検証_食品店データ_OSM_vs_Overture.md)（網羅性比較・名寄せ） / [データ定義と抽出方法_食品店POI.md](データ定義と抽出方法_食品店POI.md)*
+*関連: [検証_食品店データ_OSM_vs_Overture.md](検証_食品店データ_OSM_vs_Overture.md)（網羅性比較・名寄せ） / [データ定義と抽出方法_食品店POI.md](../master/データ定義と抽出方法_食品店POI.md)*
 *分析: DuckDB / `scripts/compare_sources_by_category.sql`*

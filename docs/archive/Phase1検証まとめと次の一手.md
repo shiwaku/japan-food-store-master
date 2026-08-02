@@ -1,8 +1,8 @@
 # Phase 1 検証まとめと次の一手（明日の再開ポイント）
 
 > 作成日: 2026-07-18 ／ 対象: 食料品店マスター Phase 1
-> 関連: `設計_食料品店マスター構築.md` / `scripts/build_food_store_master.py` /
-> `検証_マスターPhase1_都道府県別.csv` / `検証_マスターPhase1_加重実質カバー率_都道府県別.csv`
+> 関連: `../master/設計_食料品店マスター構築.md` / `scripts/build_food_store_master.py` /
+> `../master/検証_マスターPhase1_都道府県別.csv` / `../master/検証_マスターPhase1_加重実質カバー率_都道府県別.csv`
 
 ## いまの状態
 
@@ -39,7 +39,7 @@
 - `scripts/build_food_store_master.py` の supermarket 構築に、
   **「OSM shop=supermarket のうち、既存supermarket点の100m以内に無い独自分」を追加**する処理を1ブロック足す
   （fresh_foodのOSM併合と同じパターン。src='osm'でタグ）。
-- マスター再生成 → `検証_マスターPhase1_加重実質カバー率_都道府県別.csv` を作り直し、全県で実質カバーが改善するか確認。
+- マスター再生成 → `../master/検証_マスターPhase1_加重実質カバー率_都道府県別.csv` を作り直し、全県で実質カバーが改善するか確認。
 - 過剰（都市部）が気になる場合は、補完を「Overture<センサス581の県のみ」に限定する条件付きも検討。
 
 その後の候補:

@@ -19,7 +19,11 @@
 
 ```
 scripts/            # 構築パイプライン（DuckDB SQL / Python / 食品オープンデータ再現）
-docs/               # 網羅性検証・データ設計・ライセンス調査
+docs/               # 分析の一次記録（索引は docs/README.md）
+  master/           #   マスターの設計・検証・ライセンス
+  sources/          #   ソース比較と統計突合（OSM vs Overture / センサス）
+  permits/          #   食品営業許可オープンデータ（別テーマ）
+  archive/          #   古い記録・公開原稿
 data/               # QGIS スタイル(.qml) 等（生データ・大容量成果物は .gitignore）
 viewer/             # OSM vs Overture 食料品POI 比較ビューア（Vite + TypeScript + MapLibre GL / PMTiles）
   index.html        #   エントリ
@@ -53,7 +57,7 @@ npm run build    # dist/ を生成（GitHub Actions で GitHub Pages へ自動�
 
 ### なぜ Overture Places を位置の主ソースにしたか
 
-「位置（店舗座標）」の主ソースを Overture Places に置いた根拠は、検証に基づき以下の4点（詳細は `docs/設計_食料品店マスター構築.md` / `docs/検証_食品店データ_OSM_vs_Overture.md`）。
+「位置（店舗座標）」の主ソースを Overture Places に置いた根拠は、検証に基づき以下の4点（詳細は `docs/master/設計_食料品店マスター構築.md` / `docs/sources/検証_食品店データ_OSM_vs_Overture.md`）。
 
 1. **ライセンスと取得性** — CDLA-Permissive-2.0 で**再配布・改変・商用が自由（継承なし）**、かつ GeoParquet で**全国一括取得**できる。候補だった Yahoo!ローカルサーチ（YOLP）は規約でデータの保存・キャッシュが禁止されタイル化・再配布に使えず不可。**OSM を主ソースにすると ODbL の継承（share-alike）がマスター全体に及ぶ**ため、主を Overture にすることでライセンス上の律速を回避できる。
 2. **網羅性（実測）** — 最重要カテゴリのコンビニで、Overture 単独が実数（商業動態 56,352）比 **97.6%** と悉皆に近い。Overture は4提供元（Meta/Foursquare/AllThePlaces/Microsoft）を統合しており、単一ソースの OSM よりコンビニ・ドラッグストアで網羅が広い。
@@ -73,9 +77,9 @@ Overture Places は財団自身が生成したデータではなく、複数の�
 | **AllThePlaces** | [All the Places](https://www.alltheplaces.xyz/)（公式店舗ロケーターのスクレイプ） | 60,081 | 25.7% | 座標が正確なことが多い |
 | **Microsoft** | Microsoft | 17,911 | 7.7% | |
 
-> 集計元: `data/overture_food_full_jp.parquet` の `datasets` 配列（`Overture` タグを除外しレコード単位で算出）。このファイルは日本のバウンディングボックス抽出のため国外分（韓国 12,109・ロシア 160・中国 53・北朝鮮 1、計 12,323 件）を含む。上表は `country = 'JP'` に限定した 234,077 件が対象。同一実店舗が提供元ごとに別レコードとして残る（Overture の conflation 漏れ）ため、提供元別件数は名寄せ前の値。詳細は `docs/検証_食品店データ_OSM_vs_Overture.md` を参照。
+> 集計元: `data/overture_food_full_jp.parquet` の `datasets` 配列（`Overture` タグを除外しレコード単位で算出）。このファイルは日本のバウンディングボックス抽出のため国外分（韓国 12,109・ロシア 160・中国 53・北朝鮮 1、計 12,323 件）を含む。上表は `country = 'JP'` に限定した 234,077 件が対象。同一実店舗が提供元ごとに別レコードとして残る（Overture の conflation 漏れ）ため、提供元別件数は名寄せ前の値。詳細は `docs/sources/検証_食品店データ_OSM_vs_Overture.md` を参照。
 
-> **ライセンス注意**: OSM を混合した派生物は ODbL の継承（share-alike）対象になり得る。また Overture Places の Foursquare 由来分は Apache 2.0（帰属表示が必要）。公開・再配布の前に必ずライセンス範囲を精査すること。詳細は `docs/調査_食料品店マスターのライセンス.md` を参照。
+> **ライセンス注意**: OSM を混合した派生物は ODbL の継承（share-alike）対象になり得る。また Overture Places の Foursquare 由来分は Apache 2.0（帰属表示が必要）。公開・再配布の前に必ずライセンス範囲を精査すること。詳細は `docs/master/調査_食料品店マスターのライセンス.md` を参照。
 
 ## ライセンス
 
