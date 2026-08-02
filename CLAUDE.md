@@ -13,7 +13,11 @@
 
 ```
 scripts/     構築パイプライン（DuckDB SQL / Python / 食品オープンデータ再現）
-docs/        網羅性検証・データ設計・ライセンス調査（分析の一次記録。まずここを読む）
+docs/        分析の一次記録。**docs/README.md が索引**（どれを読むかはそこで引く）
+  master/    食料品店マスターの設計・検証・ライセンス（本題。新規参加者はここだけでよい）
+  sources/   ソース比較と統計突合（OSM vs Overture、経済センサス・商業動態）
+  permits/   食品営業許可オープンデータ（別テーマ。マスターの主ソースではない）
+  archive/   古い記録・公開原稿（⚠ 現状と食い違う記述を含む。根拠に使わない）
 data/        成果物・中間データ（大容量・生データは .gitignore。qml のみ追跡）
 viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre GL / PMTiles）
   index.html          パネルの静的マークアップ（中身は main.ts が生成）
@@ -53,7 +57,7 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 ### ⚠️ 加重カバー率（93.5%）を fit-for-purpose の根拠に使わないこと
 
 農水省の指標は **500mメッシュ単位の二値・空間指標**で、件数比の加重平均とは別物。
-メッシュ単位で検証した結果（`docs/検証_アクセス困難人口_メッシュ単位.md`、3県88市区町村）:
+メッシュ単位で検証した結果（`docs/master/検証_アクセス困難人口_メッシュ単位.md`、3県88市区町村）:
 
 - **農水省の「500m以上」は同一500mメッシュ内の店舗存否**として実装されている（直線500m円ではない）。
   実距離500m版・9近傍メッシュ版は公表値との比が1を超える市区町村が出て論理的に不整合。
@@ -63,7 +67,7 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
   → **絶対人数の推計にはまだ耐えない**。市区町村単位の店舗由来誤差は概ね ±20〜30%。
 - **カテゴリ優先度が加重の議論と逆転する**: convenience −16.6pt ＞ fresh_food −3.3pt ＞ drugstore −1.2pt。
   fresh_food は drugstore の約3倍効き、かつカバー率30%（不足23,890店）＝伸びしろ最大。
-  「drugstore/fresh は補完不要」（`docs/Phase1検証まとめと次の一手.md`）は **fresh_food については誤り**。
+  「drugstore/fresh は補完不要」（`docs/archive/Phase1検証まとめと次の一手.md`）は **fresh_food については誤り**。
 
 ### 次の一手（優先順）
 
@@ -72,7 +76,7 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 3. 地方 supermarket の OSM 補完（S1で83.2%が圏外＝穴は大きい。**実装前に検証器で効果を測る**）。
 4. 閉店店舗の除外（Overture deduped は `operating_status` 空＝偽陽性方向）。
 5. 検証県を47県に拡張。
-- その他候補: 道の駅の追加検討（`docs/検討_道の駅の追加可否.md`、現状は見送り）。
+- その他候補: 道の駅の追加検討（`docs/master/検討_道の駅の追加可否.md`、現状は見送り）。
 
 ## データソースと役割
 
@@ -84,7 +88,7 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 | 経済センサス・商業動態統計（e-Stat） | 数量検証・カテゴリ別カバー率 | 政府標準利用規約 |
 | 業界実数（JFA・SM白書・JACDS 等） | 全国実数のクロスチェック | 各提供元 |
 
-- Overture を主にした理由・網羅性検証の数値・原典構成比（Meta 39.8% ほか）は README と `docs/設計_食料品店マスター構築.md` / `docs/検証_食品店データ_OSM_vs_Overture.md` 参照。
+- Overture を主にした理由・網羅性検証の数値・原典構成比（Meta 39.8% ほか）は README と `docs/master/設計_食料品店マスター構築.md` / `docs/sources/検証_食品店データ_OSM_vs_Overture.md` 参照。
 
 ## ⚠️ ライセンス（律速は OSM の ODbL）
 
@@ -163,5 +167,5 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
   python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県  # 圏外率＋農水省突合
   ```
   外部データは自動取得・キャッシュ（`data/mesh/` `data/boundary/` `data/maff_2020_table05.xlsx`、いずれも gitignore）。
-  詳細と判定結果は `docs/検証_アクセス困難人口_メッシュ単位.md`。
+  詳細と判定結果は `docs/master/検証_アクセス困難人口_メッシュ単位.md`。
 - マスター再生成: `python3 scripts/build_food_store_master.py`（`data/japan_pref.geojson` は無ければ自動取得）。
