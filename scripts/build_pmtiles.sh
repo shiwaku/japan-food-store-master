@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # 比較ビューワー用 PMTiles を再生成する（出力は viewer/public/）。
 #
-#   overture_food.pmtiles  レイヤ名=overture / name, cat(バケット), cat_raw(元カテゴリ), confidence
+#   overture_food.pmtiles  レイヤ名=overture / name, addr, cat(バケット), cat_raw(元カテゴリ), confidence
 #   osm_food.pmtiles       レイヤ名=osm      / name, cat(バケット), cat_raw(元タグ)
+#          ※ OSM 側は元TSV(data/osm_food_stores_japan.tsv)が @id/@lat/@lon/shop/amenity/name しか
+#            持たないため住所を出せない。出したければ addr:* タグを含めて Overpass から取り直すこと。
 #
 # cat のバケット定義は scripts/compare_sources_by_category.sql と同一。
 # ここを変えたら向こうも変えること（viewer の COUNTS はあの SQL の出力をハードコードして
@@ -42,7 +44,17 @@ COPY (
                WHEN 'grocery_store' THEN 'grocery'
                ELSE 'fresh' END,        -- butcher_shop / farmers_market / seafood_market
       'cat_raw': category,
-      'confidence': confidence
+      'confidence': confidence,
+      -- 住所は表記が2系統ある。都道府県込みの完全住所（'沖縄県石垣市字新川2363-2'）と、
+      -- 市区町村以下だけで region/locality が別列のもの（'金城5-2-6' + 那覇市 + 沖縄県）。
+      -- 既に含まれている要素は足さずに連結する（合成後 109,575/109,602 件＝100%、平均16字）。
+      'addr': nullif(concat(
+        CASE WHEN region   IS NOT NULL AND NOT coalesce(contains(address, region),   false)
+             THEN region   ELSE '' END,
+        CASE WHEN locality IS NOT NULL AND NOT coalesce(contains(address, locality), false)
+             THEN locality ELSE '' END,
+        coalesce(address, '')
+      ), '')
     }
   }) AS j
   FROM 'data/overture_food_deduped_jp.parquet'
