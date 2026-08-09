@@ -144,23 +144,28 @@ if actual:
     with open(OUT_CSV, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
         w.writerow(["cat", "都道府県", "マスター件数", "ATP件数", "ATP純増",
-                    "投入後件数", "実数統計", "カバー率_現行", "カバー率_投入後"])
+                    "投入後件数", "実数統計", "カバー率_現行", "カバー率_ATP単独",
+                    "カバー率_投入後"])
         for cat, pref, ms_n, atp_n, newn in stats:
             act = actual.get((cat, pref))
             after = ms_n + newn
             w.writerow([cat, pref, ms_n, atp_n, newn, after, act or "",
                         f"{ms_n/act:.3f}" if act else "",
+                        f"{atp_n/act:.3f}" if act else "",
                         f"{after/act:.3f}" if act else ""])
     print(f"\n=== ③ 都道府県別カバー率 → {OUT_CSV} ===")
-    print(f"  {'cat':13s}{'現行':>9s}{'純増':>8s}{'投入後':>9s}{'実数':>9s}"
-          f"{'カバー率':>10s}{'→':>3s}{'':>8s}")
-    for cat, ms_n, newn, act in con.execute("""
+    print("  ATP単独＝ATP だけを実数統計と比べた率。マスターと足し合わせていないので、")
+    print("  「そのカテゴリを ATP がどれだけ持っているか」を素で表す。")
+    print(f"  {'cat':13s}{'現行':>9s}{'ATP':>8s}{'純増':>8s}{'投入後':>9s}{'実数':>9s}"
+          f"{'現行率':>9s}{'ATP単独':>9s}{'投入後率':>10s}")
+    for cat, ms_n, _, _ in con.execute("""
         select cat, count(*) ms_n, 0, 0 from master group by 1""").fetchall():
         act = sum(v for (c, _), v in actual.items() if c == cat)
         newn = sum(r[4] for r in stats if r[0] == cat)
+        atp_n = sum(r[3] for r in stats if r[0] == cat)
         after = ms_n + newn
-        print(f"  {cat:13s}{ms_n:>9,}{newn:>8,}{after:>9,}{act:>9,}"
-              f"{ms_n/act*100:>9.1f}%{'→':>3s}{after/act*100:>7.1f}%")
+        print(f"  {cat:13s}{ms_n:>9,}{atp_n:>8,}{newn:>8,}{after:>9,}{act:>9,}"
+              f"{ms_n/act*100:>8.1f}%{atp_n/act*100:>8.1f}%{after/act*100:>9.1f}%")
 
 # ---- 4. 消滅疑い ----
 # ATP が spider を持つブランドだけを対象にしないと、単に「ATP が知らない店」を
