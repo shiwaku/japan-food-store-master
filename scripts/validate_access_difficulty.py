@@ -38,8 +38,8 @@ B と C は比が1を超える市区町村が出る（＝論理的に不整合�
   python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県
 出力
 ----
-  docs/検証_アクセス困難人口_市区町村別.csv
-  docs/検証_アクセス困難人口_カテゴリ感度.csv
+  docs/master/検証_アクセス困難人口_市区町村別.csv
+  docs/master/検証_アクセス困難人口_カテゴリ感度.csv
 """
 import os
 import sys

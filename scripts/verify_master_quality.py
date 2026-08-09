@@ -41,7 +41,9 @@ from food_store_rules import dispensing_only_sql  # noqa: E402
 MASTER = "data/food_store_master.parquet"
 OSM_TSV = "data/osm_food_stores_japan.tsv"
 OVERTURE_DEDUP = "data/overture_food_deduped_jp.parquet"
-PREF_CSV = "docs/検証_マスターPhase1_都道府県別.csv"
+# docs 再編（PR #16）で docs/master/ へ移動済み。旧パスのままだと ① カバー率が
+# 黙ってスキップされる（os.path.exists で握りつぶすため気付けない）。
+PREF_CSV = "docs/master/検証_マスターPhase1_都道府県別.csv"
 
 # 500m を緯度の度数に換算（経度側は cos(lat) で補正して使う）
 DEG_500M = 0.0045
