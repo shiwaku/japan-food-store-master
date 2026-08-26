@@ -8,6 +8,12 @@
 
 使い方:
     python3 scripts/geocode_atp_geojson.py data/atp/yaoko_jp.geojson [...]
+    python3 scripts/geocode_atp_geojson.py --replace data/atp/mandai_jp.geojson [...]
+
+--replace は**既に座標がある地物も住所から取り直す**。クロール由来の座標が系統的にずれている
+チェーン向け（万代・ヨークベニマル・原信ナルス・イズミ・ベルク・オーケーの6本は経度が一定量
+（約 -0.00215度 = 約200m 西）ずれていた。緯度は合っており、地図の中心座標をピン位置として
+拾った類の不具合。issue #28）。取り直しに失敗した地物は元の座標を残す。
 
 - 結果は in-place 上書き(元座標がある feature には触らない)
 - クエリ結果は data/atp/_geocode_cache.json にキャッシュ(再実行安全)
@@ -34,10 +40,17 @@ def build_address(props: dict) -> str | None:
     if full := props.get("addr:full"):
         addr = full
     else:
-        parts = [props.get("addr:state"), props.get("addr:city"), props.get("addr:street_address")]
-        if not all(parts):
+        state, city, street = (props.get("addr:state"), props.get("addr:city"),
+                               props.get("addr:street_address"))
+        if not all((state, city, street)):
             return None
-        addr = "".join(parts)
+        # 市区町村名が street_address 側にも入っていることがある
+        # （ヤオコー: addr:city「ふじみ野市」/ street「ふじみ野市駒林元町二丁目1番20号」）。
+        # そのまま連結すると「埼玉県ふじみ野市ふじみ野市駒林元町…」となり、ジオコーダが
+        # 番地まで解決できず市の代表点に落ちる（204件中146件が同一座標に潰れていた）。
+        if street.startswith(city):
+            street = street[len(city):]
+        addr = "".join((state, city, street))
     addr = addr.translate(Z2H)
     # ビル名・階数・括弧書きはヒット率を下げるだけなので落とす
     addr = re.sub(r"[（(].*?[)）]", "", addr)
@@ -62,11 +75,13 @@ def geocode(addr: str, cache: dict) -> list | None:
     return coords
 
 
-def main(paths: list[str]) -> None:
+def main(argv: list[str]) -> None:
+    replace = "--replace" in argv
+    paths = [a for a in argv if not a.startswith("--")]
     cache = json.loads(CACHE_PATH.read_text(encoding="utf-8")) if CACHE_PATH.exists() else {}
     for path in map(Path, paths):
         data = json.loads(path.read_text(encoding="utf-8"))
-        todo = [f for f in data["features"] if not f.get("geometry")]
+        todo = data["features"] if replace else [f for f in data["features"] if not f.get("geometry")]
         filled = skipped = 0
         for feat in todo:
             props = feat["properties"]
@@ -83,9 +98,10 @@ def main(paths: list[str]) -> None:
                 props["geocode_source"] = "gsi"
                 filled += 1
             else:
-                skipped += 1
+                skipped += 1  # --replace のときは元の座標をそのまま残す
         path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        print(f"{path.name}: {len(todo)} missing -> {filled} filled, {skipped} left")
+        verb = "replaced" if replace else "filled"
+        print(f"{path.name}: {len(todo)} 対象 -> {filled} {verb}, {skipped} left")
         CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
 
 
