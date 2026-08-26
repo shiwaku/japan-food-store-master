@@ -48,12 +48,19 @@ import zipfile
 
 import duckdb
 
-MASTER = "data/food_store_master.parquet"
+# 検証したい店舗レイヤを差し替えられるようにしておく（既定は現行マスター）。
+# 「ATP を投入したらアクセス困難人口がどう動くか」のような**投入前後の比較**を、
+# マスター本体を書き換えずに測るための入口。出力も同時にずらすこと（既定の CSV を
+# 実験結果で上書きしないため）。
+#   FOOD_MASTER=data/tmp_master_with_atp.parquet OUT_SUFFIX=_ATP投入後 \
+#       python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県
+MASTER = os.environ.get("FOOD_MASTER", "data/food_store_master.parquet")
+SUFFIX = os.environ.get("OUT_SUFFIX", "")
 MESH = "data/mesh/mesh500_pop.parquet"
 BND_DIR = "data/boundary"
 MAFF_XLSX = "data/maff_2020_table05.xlsx"
-OUT_CITY = "docs/検証_アクセス困難人口_市区町村別.csv"
-OUT_SENS = "docs/検証_アクセス困難人口_カテゴリ感度.csv"
+OUT_CITY = f"docs/検証_アクセス困難人口_市区町村別{SUFFIX}.csv"
+OUT_SENS = f"docs/検証_アクセス困難人口_カテゴリ感度{SUFFIX}.csv"
 
 MAFF_TABLE05_URL = ("https://www.maff.go.jp/primaff/seika/fsc/faccess/attach/excel/"
                     "2020_table05.xlsx")
