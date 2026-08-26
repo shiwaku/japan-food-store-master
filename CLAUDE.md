@@ -46,6 +46,17 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 ## 現状（データ）
 
+**マスターは2系統ある。**
+
+| | 件数 | 位置づけ |
+|---|---:|---|
+| `data/food_store_master.parquet` | 102,984 | Phase1（Overture 主・OSM 補完）。**公開マスターの実体** |
+| `data/food_store_master_atp_based.parquet` | 119,092 | **ATP 基準**（2026-08-26 追加。`scripts/build_atp_based_master.py`）。座標の出所を店の公表値に揃えた系統。**推計用** |
+
+ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し、3県の500m圏外率は 62.2% → 59.8%、
+比 農水省÷変種A は 0.420 → 0.437（全市区町村で 比≤1 を維持）。設計と結果は
+`docs/master/設計_ATP基準マスター構築.md`。**現行マスターは変更していない**ので、両方が並存する。
+
 - **Phase1 マスター構築済み**: 約 102,984 店 / 農水省加重ベースの実質カバー率 93.5%。
 - マスター実体: `data/food_store_master.csv` / `.parquet`（列 `cat`, `name` 等）。カテゴリ別件数:
   `convenience 54,792 / supermarket 30,638 / fresh_food 10,070 / drugstore 7,484`。
@@ -71,6 +82,10 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 ### 次の一手（優先順）
 
+> 2026-08-26 時点の未対応は GitHub issue に起票済み:
+> #26（許可データでの補完）/ #33（supermarket 132%）/ #34（convenience 106%）/ #35（自前クロール28本の規約）/
+> #36（マスターのデイリーヤマザキ測地系ズレ）/ #37（OSM のローソン440mズレ）/ #38（47県への拡張）。
+
 1. **自動車利用困難率を外部データで固定**して係数0.42を分解する（絶対推計への唯一の道）。
 2. **fresh_food の補完**（OSM の生鮮3種は計6,890件しかなく、センサス582/583/584 との差を埋める新ソースが必要）。
    ATP では埋まらないことが確定済みなので、食品営業許可・届出の生鮮3業種を条件付きで昇格させる路線
@@ -89,7 +104,7 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 |---|---|---|
 | Overture Places | **構築**: 位置の主ソース（コンビニ・スーパー等） | CDLA-Permissive-2.0（Foursquare 由来分は Apache 2.0） |
 | OpenStreetMap | **構築**: 位置の補完（生鮮・GMS 等）・比較対象 | **ODbL 1.0（継承あり）** |
-| All The Places ＋自前クロール（`data/atp/` 52チェーン 87,499件） | **投入候補**（未投入。要修正3点あり） | CC-0 |
+| All The Places ＋自前クロール（`data/atp/` 52チェーン） | **ATP 基準マスターの土台**（86,363件）。公開マスターには未投入 | 公式14本は CC-0／自前38本は**再配布不可** |
 | 食品営業許可オープンデータ | **検証のみ**（マスターに入らない） | 各自治体（保健所）／**厚生労働省** FAS |
 | 経済センサス・商業動態統計（e-Stat） | **検証のみ**: 数量検証・カテゴリ別カバー率 | 政府標準利用規約 |
 | 業界実数（JFA・SM白書・JACDS 等） | **検証のみ**: 全国実数のクロスチェック | 各提供元 |
@@ -99,6 +114,16 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
   `scripts/reproduce_food_opendata/`（92出典の再現 MVP）も検証用の資産で、マスター構築パイプラインではない。
 
 - Overture を主にした理由・網羅性検証の数値・原典構成比（Meta 39.8% ほか）は README と `docs/master/設計_食料品店マスター構築.md` / `docs/sources/検証_食品店データ_OSM_vs_Overture.md` 参照。
+
+## ATP（チェーン公式サイト由来）の扱い
+
+- 実体は `data/atp/*.geojson`（52チェーン）→ `scripts/build_atp_geoparquet.py` で
+  `data/atp_food_stores_japan_geo.parquet`（86,363件）に畳む。
+- **再配布できるのは ATP 公式ラン14本（CC-0）だけ**。自前クロール38本は各社規約で再配布不可。
+  出力の `redistributable` 列で行単位に判別できる。**分析・推計に使うことに制約は無い**（禁じられているのは
+  店舗データそのものの再配布）。詳細は `docs/sources/調査_自前クロールソースの利用規約と再配布可否.md`。
+- カテゴリ別の素性: convenience 101%・drugstore 110%（実数統計比）は ATP 単独で満たすが、
+  **supermarket 46.6%・fresh_food 0%**。だから「ATP 単独ではマスターにならない、土台＋補完」。
 
 ## ⚠️ ライセンス（律速は OSM の ODbL）
 
@@ -188,3 +213,14 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
   外部データは自動取得・キャッシュ（`data/mesh/` `data/boundary/` `data/maff_2020_table05.xlsx`、いずれも gitignore）。
   詳細と判定結果は `docs/master/検証_アクセス困難人口_メッシュ単位.md`。
 - マスター再生成: `python3 scripts/build_food_store_master.py`（`data/japan_pref.geojson` は無ければ自動取得）。
+- **ATP 基準マスターの再生成**（`docs/master/設計_ATP基準マスター構築.md`）:
+  ```
+  python3 scripts/fetch_alltheplaces_jp.py data/atp    # 52チェーンの geojson → parquet
+  python3 scripts/build_atp_geoparquet.py              # → data/atp_food_stores_japan_geo.parquet
+  python3 scripts/build_atp_based_master.py            # → data/food_store_master_atp_based.parquet
+  FOOD_MASTER=data/food_store_master_atp_based.parquet OUT_SUFFIX=_ATP基準     python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県
+  ```
+  座標がずれているチェーンは住所から取り直す:
+  `python3 scripts/geocode_atp_geojson.py --replace data/atp/<chain>.geojson`
+- **検証器の店舗レイヤと出力先は環境変数で差し替えられる**（`FOOD_MASTER` / `OUT_SUFFIX`、
+  `compare_atp_with_master.py` は `OUT_CSV`）。既存の検証結果 CSV を実験で上書きしないこと。
