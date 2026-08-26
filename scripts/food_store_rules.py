@@ -57,3 +57,45 @@ def dispensing_only_sql(name_col: str = "name") -> str:
     # coalesce は必須。name が NULL だと ilike が NULL を返し、`where not (…)` が
     # 真にならないため、名称欠損の店舗（マスターに 495 件ある）が黙って全部落ちる。
     return f"coalesce({hit} and not ({keep}), false)"
+
+
+# ---- 調剤特化業態の除外（チェーン名で救うルールの穴埋め）----
+#
+# 上の DRUGSTORE_CHAINS は「屋号に薬局を含むドラッグストアを巻き添えにしない」ためのリストだが、
+# **同じチェーンの調剤専門業態まで救ってしまう**（「スギ薬局調剤 コトブキ薬局橿原店」241件、
+# 「調剤薬局ツルハドラッグ ○○店」104件、「オストジャパン ○○調剤薬局」等）。これらは食品を扱わない。
+#
+# ただし素朴に「調剤」を含むものを落とすと、**ウエルシアの表記**を巻き添えにする。
+# ウエルシアは併設を示す注記として店舗名に「(調剤薬局)」を付ける（「ウエルシア 江戸川葛西店 (調剤薬局)」）。
+# これは店舗本体なので残さなければならない。
+# → **括弧書きを除いた名称に「調剤」が残るもの**だけを調剤特化業態と判定する。
+import re as _re
+
+_PAREN = _re.compile(r"[（(].*?[)）]")
+
+
+def is_dispensing_format(*parts: str | None) -> bool:
+    """調剤専門業態（＝食品を扱わない）かどうか。brand / branch / name を渡す。"""
+    text = " ".join(str(p) for p in parts if p)
+    return "調剤" in _PAREN.sub("", text)
+
+
+# ---- ブランド名の正規化 ----
+#
+# ソース間でブランド表記が揺れる。マスターは「セブンイレブン」、ATP は「セブン-イレブン」。
+# 正規化せずに突合すると**同じ店が「純増」に化ける**（seven_eleven の純増 3,415件のうち
+# 1,570件＝46%が実は既存店だった。issue #28-3）。突合の前に必ずこれを通すこと。
+_BRAND_STRIP = str.maketrans("", "", "-‐－―ー・ 　　")
+
+
+def normalize_brand(s: str | None) -> str:
+    """ブランド／店名の突合用キー。記号・空白を落として小文字化する。"""
+    return (s or "").translate(_BRAND_STRIP).lower()
+
+
+def normalize_brand_sql(col: str) -> str:
+    """normalize_brand と同じ正規化を行う SQL 式。"""
+    expr = f"coalesce({col}, '')"
+    for ch in ("-", "‐", "－", "―", "ー", "・", " ", "　"):
+        expr = f"replace({expr}, '{ch}', '')"
+    return f"lower({expr})"

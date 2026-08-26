@@ -24,7 +24,9 @@ import urllib.request
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from food_store_rules import DRUGSTORE_CHAINS, DRUGSTORE_TOKENS  # noqa: E402
+from food_store_rules import (  # noqa: E402
+    DRUGSTORE_CHAINS, DRUGSTORE_TOKENS, is_dispensing_format,
+)
 
 RUN = "2026-08-01-13-32-15"
 ZIP_URL = f"https://alltheplaces-data.openaddresses.io/runs/{RUN}/output.zip"

@@ -37,6 +37,28 @@ ATP_OFFICIAL = {
 }
 
 
+def drop_near_duplicates(gdf):
+    """同一チェーン・同一ブランドで 50m 以内にある重複レコードを1件に畳む。
+
+    併設調剤が別レコードで出てくるチェーンがある（「カワチ薬品○○店」と「カワチ薬局○○調剤」、
+    「ツルハドラッグ○○店」と「調剤薬局ツルハドラッグ○○店」）。大半は調剤特化業態の除外
+    （`is_dispensing_format`）で落ちるが、ウエルシアのように併設を注記で書くチェーンは
+    残るので、空間的にも畳む。issue #28-2。
+    """
+    from food_store_rules import normalize_brand
+    key_brand = gdf["brand"].map(normalize_brand)
+    # 50m ≒ 緯度 0.00045度。格子でバケット化して、同じバケットは1件だけ残す
+    # （厳密な距離クラスタリングまでは要らない。同一店舗の重複を落とすのが目的）。
+    cell_lat = (gdf["lat"] / 0.00045).round().astype("int64")
+    cell_lng = (gdf["lng"] / 0.00055).round().astype("int64")
+    before = len(gdf)
+    gdf = gdf[~gdf.assign(_k=gdf["spider"] + "|" + key_brand + "|" +
+                          cell_lat.astype(str) + "|" + cell_lng.astype(str))
+              .duplicated(subset="_k", keep="first")]
+    print(f"同一チェーン・同一ブランドで 50m 以内の重複を除去: {before - len(gdf):,} 件")
+    return gdf
+
+
 def main() -> None:
     rows = extract(SRC_DIR)
     df = pd.DataFrame(rows)
@@ -57,6 +79,7 @@ def main() -> None:
     cols = ["cat", "name", "brand", "prefecture", "spider", "ref", "src",
             "source_class", "redistributable", "geocode_source", "lat", "lng", "geometry"]
     gdf = gdf[cols]
+    gdf = drop_near_duplicates(gdf)
     # covering bbox は GeoParquet 1.1 の機能。DuckDB 等の空間フィルタが効くように付ける。
     gdf.to_parquet(OUT, index=False, compression="zstd", geometry_encoding="WKB",
                    schema_version="1.1.0", write_covering_bbox=True)
