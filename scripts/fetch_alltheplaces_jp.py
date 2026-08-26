@@ -5,7 +5,10 @@ ATP はチェーン公式サイトのスクレイパー集で、出力は **CC-0
 OSM の ODbL 継承を持ち込まないので、公開物のライセンス律速に効く第3ソース候補。
 
 入力: ATP の run 出力 zip（既定は data/atp/output.zip。無ければ RUN から取得）
-出力: data/atp_food_stores_japan.parquet（列 cat, name, brand, src, lat, lng, spider, ref）
+      または *.geojson を並べたディレクトリ（例 data/atp）。公式ランに spider が無い
+      チェーンの自前クロール分を、同じ分類規則で取り込むための入口。
+出力: data/atp_food_stores_japan.parquet
+      （列 cat, name, brand, src, lat, lng, spider, ref, geocode_source）
 
 注意:
 - **チェーン店しか載らない**。個人経営の青果・鮮魚・精肉店は原理的に入らないので、
@@ -110,61 +113,84 @@ def classify(props: dict) -> str | None:
     return None
 
 
-def extract(zip_path: str) -> list[dict]:
-    rows, spiders_seen, skipped_pharmacy = [], 0, 0
+def iter_zip(zip_path: str):
+    """ATP 週次ランの output.zip から (ファイル名, 中身) を流す。"""
     with zipfile.ZipFile(zip_path) as zf:
         names = [n for n in zf.namelist() if n.endswith(".geojson")]
-        print(f"spider 出力: {len(names):,} ファイル")
+        print(f"spider 出力: {len(names):,} ファイル（{zip_path}）")
         for i, member in enumerate(names, 1):
             if i % 500 == 0:
-                print(f"  {i:,}/{len(names):,} 走査済み  抽出 {len(rows):,} 件")
+                print(f"  {i:,}/{len(names):,} 走査済み")
             with zf.open(member) as fh:
-                raw = fh.read()
-            if not raw.strip():
-                continue  # 失敗したスパイダー（空ファイル）
-            try:
-                fc = json.loads(raw)
-            except json.JSONDecodeError:
-                print(f"  ! JSON 解析失敗: {member}")
+                yield member, fh.read()
+
+
+def iter_dir(dir_path: str):
+    """ディレクトリ内の *.geojson から (ファイル名, 中身) を流す。
+
+    ATP 公式ランに spider が無いチェーン（セブン-イレブン・イオン・ウエルシア等）を
+    自前クロールした出力を、**公式ランとまったく同じ分類規則で**取り込むための入口。
+    自前クロール分も ATP と同じ OSM 互換タグ（shop / amenity / brand / @spider）で
+    書き出してあるので、下流の処理は共通でよい。
+    """
+    names = sorted(p for p in os.listdir(dir_path) if p.endswith(".geojson"))
+    print(f"spider 出力: {len(names):,} ファイル（{dir_path}）")
+    for name in names:
+        with open(os.path.join(dir_path, name), "rb") as fh:
+            yield name, fh.read()
+
+
+def extract(src: str) -> list[dict]:
+    rows, spiders_seen, skipped_pharmacy, n_files = [], 0, 0, 0
+    sources = iter_dir(src) if os.path.isdir(src) else iter_zip(src)
+    for member, raw in sources:
+        n_files += 1
+        if not raw.strip():
+            continue  # 失敗したスパイダー（空ファイル）
+        try:
+            fc = json.loads(raw)
+        except json.JSONDecodeError:
+            print(f"  ! JSON 解析失敗: {member}")
+            continue
+        hit = False
+        for feat in fc.get("features", []):
+            geom = feat.get("geometry") or {}
+            if geom.get("type") != "Point":
                 continue
-            hit = False
-            for feat in fc.get("features", []):
-                geom = feat.get("geometry") or {}
-                if geom.get("type") != "Point":
-                    continue
-                props = feat.get("properties", {})
-                cat = classify(props)
-                if cat is None:
-                    continue
-                lon, lat = geom["coordinates"][0], geom["coordinates"][1]
-                if lon is None or lat is None or not is_japan(props, lon, lat):
-                    continue
-                name = store_name(props)
-                if cat == "drugstore" and is_dispensing_only(name):
-                    skipped_pharmacy += 1
-                    continue
-                rows.append({
-                    "cat": cat,
-                    "name": name,
-                    "brand": props.get("brand"),
-                    "src": "atp",
-                    "lat": lat,
-                    "lng": lon,
-                    "spider": props.get("@spider") or os.path.basename(member)[:-8],
-                    "ref": props.get("ref"),
-                })
-                hit = True
-            spiders_seen += 1 if hit else 0
-    print(f"日本の食料品店を含む spider: {spiders_seen} / 走査 {len(names):,}")
+            props = feat.get("properties", {})
+            cat = classify(props)
+            if cat is None:
+                continue
+            lon, lat = geom["coordinates"][0], geom["coordinates"][1]
+            if lon is None or lat is None or not is_japan(props, lon, lat):
+                continue
+            name = store_name(props)
+            if cat == "drugstore" and is_dispensing_only(name):
+                skipped_pharmacy += 1
+                continue
+            rows.append({
+                "cat": cat,
+                "name": name,
+                "brand": props.get("brand"),
+                "src": "atp",
+                "lat": lat,
+                "lng": lon,
+                "spider": props.get("@spider") or os.path.basename(member)[:-8],
+                "ref": props.get("ref"),
+                "geocode_source": props.get("geocode_source"),
+            })
+            hit = True
+        spiders_seen += 1 if hit else 0
+    print(f"日本の食料品店を含む spider: {spiders_seen} / 走査 {n_files:,}")
     print(f"調剤専業として除外: {skipped_pharmacy:,} 件")
     return rows
 
 
 def main() -> None:
-    zip_path = sys.argv[1] if len(sys.argv) > 1 else download_zip()
-    rows = extract(zip_path)
+    src = sys.argv[1] if len(sys.argv) > 1 else download_zip()
+    rows = extract(src)
     if not rows:
-        sys.exit("抽出 0 件。zip の中身か shop タグの対応表を疑うこと。")
+        sys.exit("抽出 0 件。入力の中身か shop タグの対応表を疑うこと。")
 
     import duckdb
     con = duckdb.connect()
