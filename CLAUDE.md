@@ -73,6 +73,8 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 1. **自動車利用困難率を外部データで固定**して係数0.42を分解する（絶対推計への唯一の道）。
 2. **fresh_food の補完**（OSM の生鮮3種は計6,890件しかなく、センサス582/583/584 との差を埋める新ソースが必要）。
+   ATP では埋まらないことが確定済みなので、食品営業許可・届出の生鮮3業種を条件付きで昇格させる路線
+   （`docs/sources/調査_freshfood補完ソース.md`）。
 3. 地方 supermarket の OSM 補完（S1で83.2%が圏外＝穴は大きい。**実装前に検証器で効果を測る**）。
 4. 閉店店舗の除外（Overture deduped は `operating_status` 空＝偽陽性方向）。
 5. 検証県を47県に拡張。
@@ -80,13 +82,14 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 
 ## データソースと役割
 
-**マスターに入るのは Overture と OSM の2つだけ**。他は全部「検証用」で、マスターには投入しない。
-（実測: `data/food_store_master.parquet` の `src` 列は overture 97,600 / osm 5,384 の2値のみ）
+**現時点でマスターに入っているのは Overture と OSM の2つだけ**。他は「検証用」または「投入候補」で、
+まだ入っていない（実測: `data/food_store_master.parquet` の `src` 列は overture 97,600 / osm 5,384 の2値のみ）。
 
 | ソース | 役割 | ライセンス |
 |---|---|---|
 | Overture Places | **構築**: 位置の主ソース（コンビニ・スーパー等） | CDLA-Permissive-2.0（Foursquare 由来分は Apache 2.0） |
 | OpenStreetMap | **構築**: 位置の補完（生鮮・GMS 等）・比較対象 | **ODbL 1.0（継承あり）** |
+| All The Places ＋自前クロール（`data/atp/` 52チェーン 87,499件） | **投入候補**（未投入。要修正3点あり） | CC-0 |
 | 食品営業許可オープンデータ | **検証のみ**（マスターに入らない） | 各自治体（保健所）／**厚生労働省** FAS |
 | 経済センサス・商業動態統計（e-Stat） | **検証のみ**: 数量検証・カテゴリ別カバー率 | 政府標準利用規約 |
 | 業界実数（JFA・SM白書・JACDS 等） | **検証のみ**: 全国実数のクロスチェック | 各提供元 |
@@ -142,6 +145,15 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 - **除外ルールを `where not (…)` で書くと NULL 行が黙って消える**。`name` が NULL だと `ilike` が
   NULL を返し `not (NULL)` は真にならないため、名称欠損の 495 件が丸ごと落ちた（件数が合わずに発覚）。
   除外述語は必ず `coalesce(…, false)` で包む。
+
+- **ブランド名の表記ゆれで重複が「純増」に化ける**。マスターは「セブンイレブン」、ATP は
+  「セブン-イレブン」。ソース間の突合前に `-`／`‐`／`－`／空白を落として正規化すること
+  （seven_eleven の純増 3,415 件のうち 1,570 件が実は既存店だった）。
+
+- **データ側に測地系ズレが混ざっている**。マスター（Overture 由来）の**デイリーヤマザキ 943件**は
+  旧日本測地系のままで北へ+358m・西へ−264m ずれる（補正すると 87% が別の500mメッシュへ移る）。
+  **OSM のローソン 11,369件**も約440mずれる（viewer の `osm_food.pmtiles` に影響）。
+  位置がおかしいと感じたら、まずブランド単位で他ソースとの差分の中央値を取ること。
 
 - **DuckDB spheroid バグ**: この環境では `ST_Distance_Spheroid` / `ST_DWithin_Spheroid` が `-nan` を返して使えない。距離は等距円筒近似（緯度補正した平面距離）で代替する。
 - **Overture の bbox 抽出は国外を含む**: `data/overture_food_full_jp.parquet`（246,400 件）は日本の bbox 抽出で韓国・ロシア等を含む。日本のみは `country = 'JP'`（234,077 件）で絞る。

@@ -30,7 +30,9 @@ ATP = "data/atp_food_stores_japan.parquet"
 MASTER = "data/food_store_master.parquet"
 PREF_GEOJSON = "data/japan_pref.geojson"
 PREF_CSV = "docs/master/検証_マスターPhase1_都道府県別.csv"
-OUT_CSV = "docs/sources/検証_AllThePlaces_都道府県別.csv"
+# 出力先は差し替え可能にしておく（既定は 2026-08-09 の ATP 公式ラン検証で使ったファイル）。
+# データセットを入れ替えて回すときは、既存の検証結果を上書きしないよう別名を渡すこと。
+OUT_CSV = os.environ.get("OUT_CSV", "docs/sources/検証_AllThePlaces_都道府県別.csv")
 OUT_NEW = "data/atp_net_new.parquet"
 
 RADIUS_M = float(sys.argv[1]) if len(sys.argv) > 1 else 100.0
