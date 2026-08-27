@@ -205,6 +205,22 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
   に合わせた作り（CSS変数のライト/ダーク、デスクトップ＝全高サイドパネル／モバイル＝ボトムシート、
   トグルスイッチ、背景切替（地図/写真）、不透明度スライダー）。
 - カテゴリ絞り込みでソース別件数が連動する。**件数は `viewer/src/layers.ts` の `COUNTS` にハードコード**（pmtiles は tippecanoe の間引きで実行時カウント不可のため）。pmtiles を再生成したら `scripts/compare_sources_by_category.sql` で件数を出し直して `COUNTS` を更新すること。
+- **ソースは3つ**。Overture / OSM は PMTiles、**「食品営業許可・届出」だけ GeoJSON**
+  （`viewer/public/permit_gapfill.json`、20,400点・4.0MB、`scripts/build_permit_geojson.py` で生成）。
+  中身は許可データの純増で、**既定 OFF の目視確認用**。issue #46 の再評価後は
+  **⑪ 総合スーパー 3,157点＝採用（`atp_super` に投入済み）／生鮮3業種 17,243点＝保留**なので、
+  カテゴリチップ（スーパー／生鮮・直売所）で切り替えて別々に見ること。
+  **保留になった生鮮の質を目視で確かめるのが、いまのこのレイヤの主用途**。
+  - 純増は2万点しかないので tippecanoe を要求しない GeoJSON にしてある（10万件規模になったら pmtiles へ）。
+  - **拡張子は `.json`**。`.geojson` は GitHub Pages が gzip しない content-type で配信するため。
+  - ⚠️ **その `.json` を `vite.config.ts` の `globIgnores` に入れること**。`globPatterns` に
+    `json`（webmanifest 用）が入っているので、除外しないと PWA が 4MB を全訪問者にプリキャッシュする
+    （precache 1,454KiB → 5,506KiB になって発覚）。
+  - `cat` は**viewer のバケットキー**（`super` / `fresh`）で書き出す。マスターの `supermarket` /
+    `fresh_food` のままだと色・ピン・絞り込みが全部効かない。
+  - 出典はソース側の `attribution` に持たせている（`customAttribution` ではない）。
+    レイヤー OFF でソースごと外れるので、表示中だけ出典が出るのが正しい。OSM/Overture は
+    ODbL の常時表示要件があるので `customAttribution` 側、という使い分け。
 - **表示モードが2つある**（`viewer/src/layers.ts` の `Mode`）。
   - `source`（既定）: 色＝データソース（Overture 青／OSM 橙）。OSM vs Overture の比較用。
   - `category`: 色＝業態。z<13 はカテゴリ色の丸点、**z≥13 は
@@ -221,6 +237,8 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 - **パネルは `top:0`＋`bottom:0` で全高固定**。`height:auto` にすると内容が画面より低いとき下端が動く。モバイル（`top:auto`）で畳むときは `bottom:0` を明示しないとパネルが画面最上部へ飛ぶ。
 - **checkbox は `position:absolute` で視覚非表示にし、必ず `.toggle` ラベル内に閉じ込める**。パネル外が基準になるとフォーカス移動でパネルのスクロールが壊れる。
 - **MapLibre 5 は `filter: undefined` を明示的に渡すとバリデーションで落ちる**（`array expected, undefined found`）。フィルタ無しはキー自体を持たせない。
+  **`source-layer` も同じ**。GeoJSON ソースは source-layer を持たないので、`"source-layer": undefined` を
+  渡さずキーごと省く（`main.ts` の `srcLayerOf()`）。
 - **背景の差し替えは `setStyle(..., {diff:false})` ＋ `once('idle')` で再追加**。ラスタ（写真）↔ベクタ（淡色）は diff 適用が効かない。
 - **WSL では vite の HMR が `/mnt/c` 配下の変更を拾わないことがある**。挙動が変わらないときは dev サーバーを再起動して、`curl http://localhost:PORT/.../src/main.ts` で配信内容を確認する。
 
@@ -348,6 +366,12 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
   MIN_LEVEL=8 python3 scripts/extract_permit_fresh_food.py          # 町丁目レベル座標を落とす
   ```
   ⑪ と生鮮は `scripts/permit_gapfill.py` を共有する（抽出→畳み→フィルタ→突合→県別）。
+
+- **viewer の確認用レイヤ（許可データの純増）を作り直す**:
+  ```
+  python3 scripts/build_permit_geojson.py    # → viewer/public/permit_gapfill.json
+  ```
+  最後に `COUNTS` に入れる件数を表示するので、`viewer/src/layers.ts` を更新すること。
 
 - **許可データをマスターに投入する（3段構え）**。候補は「どのマスターに対して純増か」で変わるので、
   ②と③には**同じ土台**を渡すこと:

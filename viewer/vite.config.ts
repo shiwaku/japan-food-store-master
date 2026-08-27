@@ -14,7 +14,10 @@ export default defineConfig({
       // PMTiles はプリキャッシュしない（巨大 & HTTP Range 配信を壊さないため）
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,json}"],
-        globIgnores: ["**/*.pmtiles"],
+        // permit_gapfill.json は 4MB の確認用レイヤで**既定 OFF**。json が
+        // globPatterns に入っている（webmanifest 用）ので、明示的に除外しないと
+        // 全訪問者が初回に 4MB を落とすことになる。
+        globIgnores: ["**/*.pmtiles", "**/permit_gapfill.json"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         // 地図データ・タイルは runtime キャッシュせずネットワーク直通
         navigateFallback: null,

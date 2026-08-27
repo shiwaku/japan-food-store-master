@@ -79,9 +79,21 @@ const activeLayerIds = (): string[] =>
 const catFilter = (): maplibregl.FilterSpecification | null =>
   cat === "all" ? null : ["==", ["get", "cat"], cat];
 
+/**
+ * PMTiles は source-layer を要求するが GeoJSON は持たない。
+ * `filter: undefined` と同様、**キー自体を持たせない**（MapLibre のバリデーションが落ちる）。
+ */
+const srcLayerOf = (def: SourceDef): { "source-layer"?: string } =>
+  def.kind === "geojson" ? {} : { "source-layer": def.sourceLayer as string };
+
 function ensureLayer(def: SourceDef): void {
   if (!map.getSource(def.key)) {
-    map.addSource(def.key, { type: "vector", url: `pmtiles://./${def.file}` });
+    if (def.kind === "geojson") {
+      // 出典はソース側に持たせる（layers.ts の attribution 参照）。
+      map.addSource(def.key, { type: "geojson", data: `./${def.file}`, attribution: def.attribution });
+    } else {
+      map.addSource(def.key, { type: "vector", url: `pmtiles://./${def.file}` });
+    }
   }
   // filter は「無し」を undefined で渡すと MapLibre のバリデーションが落ちるため、
   // 全カテゴリ表示のときはキー自体を持たせない。
@@ -92,7 +104,7 @@ function ensureLayer(def: SourceDef): void {
       id: circleId(def.key),
       type: "circle",
       source: def.key,
-      "source-layer": def.sourceLayer,
+      ...srcLayerOf(def),
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 12, 4, 16, 6],
         "circle-color": mode === "category" ? catColorExpr() : def.color,
@@ -112,7 +124,7 @@ function ensureLayer(def: SourceDef): void {
       id: pinId(def.key),
       type: "symbol",
       source: def.key,
-      "source-layer": def.sourceLayer,
+      ...srcLayerOf(def),
       minzoom: PIN_MINZOOM,
       layout: {
         "icon-image": catIconExpr(FOOD_SPRITE_ID),
