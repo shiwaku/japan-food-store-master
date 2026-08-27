@@ -58,7 +58,9 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 `docs/master/設計_ATP基準マスター構築.md`。**現行マスターは変更していない**ので、両方が並存する。
 
 - **Phase1 マスター構築済み**: 約 102,984 店 / 農水省加重ベースの実質カバー率 93.5%。
-- マスター実体: `data/food_store_master.csv` / `.parquet`（列 `cat`, `name` 等）。カテゴリ別件数:
+- マスター実体: `data/food_store_master.csv` / `.parquet`（列 `cat`, `src_cat`, `name` 等。
+  **`src_cat` はソース側の生カテゴリ**（Overture の category / OSM の shop）で、
+  カバー率の分母が業態ごとに違うため 2026-08-27 に追加した。issue #33）。カテゴリ別件数:
   `convenience 54,792 / supermarket 30,638 / fresh_food 10,070 / drugstore 7,484`。
 - **調剤専業は除外済み**（2026-07-31・246件）。判定は `scripts/food_store_rules.py` に置き、
   構築（`build_food_store_master.py`）と検証（`verify_master_quality.py`）が**共有**する。
@@ -76,6 +78,13 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 - 現状マスターは公表値を**単一係数0.42で再現**でき比≤1を全市区町村で満たす → 相対比較には使える。
   ただし係数が自動車利用困難率と店舗の穴のどちらに由来するか分離できていない
   → **絶対人数の推計にはまだ耐えない**。市区町村単位の店舗由来誤差は概ね ±20〜30%。
+- **「supermarket は実数の137%だから補完不要」は誤り**（issue #33、
+  `docs/master/検証_supermarket分解と分母の確定.md`）。137% は業態が違う2系統の合成で、
+  `src_cat='supermarket'`（Overture supermarket）由来 18,487 件だけをセンサス561+581（23,401）で割ると
+  **79.0%＝約4,900店の不足**。地方はさらに低く島根42.5%・高知46.9%。
+  `src_cat='grocery_store'` 由来 12,151 件は589系で**分母が手元に無い**（e-Stat API の appId が必要）。
+  → **分母はセンサス561+581、分子は src_cat='supermarket' のみ**で語る。
+  ただし grocery 由来を落とすと3県の圏外率は +2.0pt 悪化する（＝指標には効いている）ので**消さない**。
 - **カテゴリ優先度が加重の議論と逆転する**: convenience −16.6pt ＞ fresh_food −3.3pt ＞ drugstore −1.2pt。
   fresh_food は drugstore の約3倍効き、かつカバー率30%（不足23,890店）＝伸びしろ最大。
   「drugstore/fresh は補完不要」（`docs/archive/Phase1検証まとめと次の一手.md`）は **fresh_food については誤り**。
@@ -83,7 +92,7 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 ### 次の一手（優先順）
 
 > 2026-08-26 時点の未対応は GitHub issue に起票済み:
-> #26（許可データでの補完 → **⑪ 総合スーパーは 2026-08-27 に実測済み**、下記）/ #33（supermarket 132%）/ #34（convenience 106%）/ #35（自前クロール28本の規約）/
+> #26（許可データでの補完 → **⑪ 総合スーパーは 2026-08-27 に実測済み**、下記）/ #33（supermarket 132% → **2026-08-27 に分母を確定**、下記）/ #34（convenience 106%）/ #35（自前クロール28本の規約）/
 > #36（マスターのデイリーヤマザキ測地系ズレ）/ #37（OSM のローソン440mズレ）/ #38（47県への拡張）。
 
 1. **自動車利用困難率を外部データで固定**して係数0.42を分解する（絶対推計への唯一の道）。
@@ -97,6 +106,8 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
    ATP 基準マスターには入れてよい。公開マスターへは #33（supermarket が既に広義で137%）の整理が先。
    `python3 scripts/extract_permit_supermarkets.py`（マスターは書き換えない）。
 4. 地方 supermarket の OSM 補完（S1で83.2%が圏外＝穴は大きい。**実装前に検証器で効果を測る**）。
+   純増は 4,576件（100m判定）で許可⑪ との重複は 1,209件＝28.8% だけ＝**両者は相補的**。
+   ただし OSM は **ODbL 継承**が付くので、投入はライセンス精査とセット。
 5. 閉店店舗の除外（Overture deduped は `operating_status` 空＝偽陽性方向）。
    **許可データの届出行では代替できない**（日付列が全件空。落とし穴の節）。
 6. 検証県を47県に拡張。
@@ -241,6 +252,12 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
   ```
   座標がずれているチェーンは住所から取り直す:
   `python3 scripts/geocode_atp_geojson.py --replace data/atp/<chain>.geojson`
+- **supermarket の分解（分母の確定。issue #33）**:
+  ```
+  python3 scripts/build_food_store_master.py     # src_cat 列つきで再生成（件数は 102,984 のまま不変）
+  python3 scripts/decompose_supermarket.py       # → docs/master/検証_supermarket分解_都道府県別.csv
+  ```
+
 - **許可データ⑪からの supermarket 補完候補**（`docs/sources/検証_許可データ_総合スーパー_補完効果.md`）:
   ```
   python3 scripts/extract_permit_supermarkets.py          # → data/permit_supermarket_candidates.parquet
