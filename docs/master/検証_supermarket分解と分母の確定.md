@@ -43,7 +43,7 @@ issue #33 の実測記録（2026-08-27）。再現: `python3 scripts/decompose_s
 
 検証3県のうち島根 42.5%・高知 46.9% が最下位付近にある。
 **メッシュ検証で圏外率が過大に出る（比 農水省÷変種A が 0.42 と小さい）ことの、店舗側の主因はここ**
-（`docs/master/検証_アクセス困難人口_メッシュ単位.md`）。②を足しても 8割台に届かない県が並ぶ。
+（[japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis)）。②を足しても 8割台に届かない県が並ぶ。
 
 ## 2. 残る不足を何で埋めるか
 
@@ -82,8 +82,9 @@ issue #33 の実測記録（2026-08-27）。再現: `python3 scripts/decompose_s
   買い物アクセスの目的では小規模食料品店も調達点として有効で、地方では①の穴を部分的に埋めている
   （§1 の「①+②」列で福井 102.0%・熊本 104.7% など）。
   ```
-  FOOD_MASTER=data/tmp_master_no_grocery.parquet OUT_SUFFIX=_grocery除外 \
-      python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県
+  # 検証器は japan-food-access-analysis に分離済み
+  FOOD_STORES=input/tmp_master_no_grocery.parquet OUT_SUFFIX=_grocery除外 \
+      python scripts/02_validate_access_difficulty.py 高知県 島根県 宮城県
   ```
 - **カバー率の分子に混ぜない**。分母（589系）が取れるまでは「分母不明の別枠」として扱う。
 - 2024年4月の日本標準産業分類改定で細分類「5811 食料品スーパーマーケット」が新設され、

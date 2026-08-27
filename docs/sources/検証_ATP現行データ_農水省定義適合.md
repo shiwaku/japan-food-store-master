@@ -8,8 +8,9 @@
 python3 scripts/fetch_alltheplaces_jp.py data/atp          # → data/atp_food_stores_japan.parquet
 OUT_CSV=docs/sources/検証_ATP現行データ_都道府県別.csv \
   python3 scripts/compare_atp_with_master.py               # 純増・座標精度・県別カバー率
-FOOD_MASTER=data/tmp_master_with_atp.parquet OUT_SUFFIX=_ATP投入後 \
-  python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県   # 農水省突合（本命）
+# 農水省突合（本命）。検証器は japan-food-access-analysis に分離済み
+FOOD_STORES=input/tmp_master_with_atp.parquet OUT_SUFFIX=_ATP投入後 \
+  python scripts/02_validate_access_difficulty.py 高知県 島根県 宮城県
 ```
 付随データ: [検証_ATP現行データ_都道府県別.csv](検証_ATP現行データ_都道府県別.csv) /
 [検証_ATP現行データ_アクセス困難人口_市区町村別.csv](検証_ATP現行データ_アクセス困難人口_市区町村別.csv)

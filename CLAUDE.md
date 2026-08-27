@@ -8,6 +8,12 @@
 
 - 姉妹リポジトリ `japan-mobility-ease-diagnosis`（住所を入れるだけの移動しやすさ診断）の**目的地レイヤー**として使う食料品店データを、再現可能なパイプラインとして分離・整備するのが目的。
 - 2026-07-19 に `japan-mobility-ease-diagnosis` から履歴ごと分離して発足（分離前の履歴は両repo共通）。
+- **2026-08-27 に、アクセス困難人口の推計・検証を
+  [japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis) へ分離した。**
+  ここは**店舗レイヤ（POI マスター）の供給に専念**する。メッシュ人口・距離判定・農水省公表値との突合は向こう。
+  向こうは `FOOD_STORES` に parquet を渡す作りで、必要な列は `lat` / `lng` / `cat` の3つだけ。
+  **ソース投入の可否判定（比≤1・相関 r）は向こうの検証器で回す**ので、このリポジトリ単独では判定できない。
+  人口レイヤは分離時に 500m → **125mメッシュ**（e-Stat `T001225`）へ変更した（変種Aの数値はほぼ不変）。
 
 ## リポジトリ構成
 
@@ -73,7 +79,7 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 ### ⚠️ 加重カバー率（93.5%）を fit-for-purpose の根拠に使わないこと
 
 農水省の指標は **500mメッシュ単位の二値・空間指標**で、件数比の加重平均とは別物。
-メッシュ単位で検証した結果（`docs/master/検証_アクセス困難人口_メッシュ単位.md`、3県88市区町村）:
+メッシュ単位で検証した結果（**検証器と一次記録は [japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis) に分離**、3県88市区町村）:
 
 - **農水省の「500m以上」は同一500mメッシュ内の店舗存否**として実装されている（直線500m円ではない）。
   実距離500m版・9近傍メッシュ版は公表値との比が1を超える市区町村が出て論理的に不整合。
@@ -98,7 +104,8 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 > #26（許可データでの補完 → **⑪ 総合スーパーは 2026-08-27 に実測済み**、下記）/ #33（supermarket 132% → **2026-08-27 に分母を確定**、下記）/ #34（convenience 106%）/ #35（自前クロール28本の規約）/
 > #36（マスターのデイリーヤマザキ測地系ズレ）/ #37（OSM のローソン440mズレ）/ #38（47県への拡張）。
 
-1. **自動車利用困難率を外部データで固定**して係数0.42を分解する（絶対推計への唯一の道）。
+1. ~~**自動車利用困難率を外部データで固定**して係数0.42を分解する~~ → **推計側の課題なので
+   [japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis) に移した**（絶対推計への唯一の道）。
 2. ~~**fresh_food の補完**~~ → **2026-08-27 に許可データで実測し、ATP 基準に投入済み**
    （`docs/sources/検証_許可データ_生鮮3業種_補完効果.md`）。生鮮3業種（魚介類・食肉・野菜果物 販売業）
    からの純増は 17,880件（ATP基準では 17,243件）で、3県の500m圏外率 62.2%→60.1%、比≤1 維持、
@@ -118,7 +125,7 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
    ただし OSM は **ODbL 継承**が付くので、投入はライセンス精査とセット。
 5. 閉店店舗の除外（Overture deduped は `operating_status` 空＝偽陽性方向）。
    **許可データの届出行では代替できない**（日付列が全件空。落とし穴の節）。
-6. 検証県を47県に拡張。
+6. ~~検証県を47県に拡張~~ → [japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis) に移した（issue #38）。
 - その他候補: 道の駅の追加検討（`docs/master/検討_道の駅の追加可否.md`、現状は見送り）。
 
 ## データソースと役割
@@ -231,7 +238,7 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 
 - **件数を足せば圏外率は必ず下がるので、下がったこと自体は判定材料にならない**。
   投入の可否は「比 農水省÷変種A が1を超えないこと」と
-  **「農水省公表値との相関 r が上がること」**で見る（検証器が両方出す）。
+  **「農水省公表値との相関 r が上がること」**で見る（検証器が両方出す。検証器は [japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis)）。
 
 - **⑬ その他の食料・飲料販売業（85,987施設）は使えない**。名称で分けると 81.3% が
   「その他」でその大半が飲食店・菓子・雑貨（コメダ珈琲・しゃぶ葉・叙々苑・餃子の王将・
@@ -267,20 +274,26 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
   （viewer の `COUNTS` はあの SQL の出力なので、定義がズレると表示件数とタイルの中身が食い違う）。
 - カテゴリ別件数の集計: `duckdb -c ".read scripts/compare_sources_by_category.sql"`。
 - 食品オープンデータ再現 MVP: `scripts/reproduce_food_opendata/`（Python、92 出典 → 統合。README 参照）。
-- **アクセス困難人口でのマスター検証**（fit-for-purpose 判定に使う本命の検証器）:
+- **アクセス困難人口でのマスター検証**（fit-for-purpose 判定に使う本命の検証器）は
+  **[japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis) に分離した**（2026-08-27）。
+  このリポジトリは店舗レイヤの供給に専念し、検証は向こうで回す:
   ```
-  python3 scripts/fetch_mesh_population.py 高知県 島根県 宮城県      # 500mメッシュ人口
-  python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県  # 圏外率＋農水省突合
+  cd ../japan-food-access-analysis
+  python scripts/01_fetch_mesh_population.py 高知県 島根県 宮城県     # 125mメッシュ人口
+  FOOD_STORES=input/food_store_master.parquet \
+      python scripts/02_validate_access_difficulty.py 高知県 島根県 宮城県
   ```
-  外部データは自動取得・キャッシュ（`data/mesh/` `data/boundary/` `data/maff_2020_table05.xlsx`、いずれも gitignore）。
-  詳細と判定結果は `docs/master/検証_アクセス困難人口_メッシュ単位.md`。
+  店舗レイヤに必要な列は `lat` / `lng` / `cat` の3つだけ。`input/` に parquet を置くか `FOOD_STORES` で指す。
+  外部データ（メッシュ人口・境界・農水省 表5）は向こうのスクリプトが自動取得する。
 - マスター再生成: `python3 scripts/build_food_store_master.py`（`data/japan_pref.geojson` は無ければ自動取得）。
 - **ATP 基準マスターの再生成**（`docs/master/設計_ATP基準マスター構築.md`）:
   ```
   python3 scripts/fetch_alltheplaces_jp.py data/atp    # 52チェーンの geojson → parquet
   python3 scripts/build_atp_geoparquet.py              # → data/atp_food_stores_japan_geo.parquet
   python3 scripts/build_atp_based_master.py            # → data/food_store_master_atp_based.parquet
-  FOOD_MASTER=data/food_store_master_atp_based.parquet OUT_SUFFIX=_ATP基準     python3 scripts/validate_access_difficulty.py 高知県 島根県 宮城県
+  # 検証は japan-food-access-analysis で:
+  #   FOOD_STORES=input/food_store_master_atp_based.parquet OUT_SUFFIX=_ATP基準 \
+  #       python scripts/02_validate_access_difficulty.py 高知県 島根県 宮城県
   ```
   座標がずれているチェーンは住所から取り直す:
   `python3 scripts/geocode_atp_geojson.py --replace data/atp/<chain>.geojson`

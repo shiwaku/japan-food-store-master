@@ -164,7 +164,7 @@ ATP のファミマを足すだけだと、この偽陽性を残したまま総�
 
 ## 5. アクセス困難人口での効果（試算）
 
-fit-for-purpose の本命検証器（[master/検証_アクセス困難人口_メッシュ単位.md](../master/検証_アクセス困難人口_メッシュ単位.md)）で、
+fit-for-purpose の本命検証器（[japan-food-access-analysis](https://github.com/shiwaku/japan-food-access-analysis)・2026-08-27 に分離）で、
 3県88市区町村を投入前後で比較した。**この試算のあとマスターは投入前の状態に戻してある。**
 
 | 指標 | 投入前 | 投入後（約9,800件追加） |
