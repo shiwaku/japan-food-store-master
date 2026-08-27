@@ -2,7 +2,7 @@
 
 import type { ExpressionSpecification } from "maplibre-gl";
 
-export type SourceKey = "ovt" | "osm";
+export type SourceKey = "ovt" | "osm" | "permit";
 
 /** 表示モード: ソース別（色＝データソース）／カテゴリ別（色＝業態・高ズームでピン）。 */
 export type Mode = "source" | "category";
@@ -12,13 +12,25 @@ export const PIN_MINZOOM = 13;
 
 export interface SourceDef {
   key: SourceKey;
-  /** PMTiles 内のレイヤー名 */
-  sourceLayer: string;
+  /**
+   * ソースの種類。既定は PMTiles（ベクタタイル）。
+   * "geojson" は点数が少ない確認用レイヤ向け（tippecanoe を要求しない）。
+   */
+  kind?: "pmtiles" | "geojson";
+  /** PMTiles 内のレイヤー名（kind:"geojson" では不要） */
+  sourceLayer?: string;
   /** public/ 配下のファイル名 */
   file: string;
   name: string;
   /** 名称の後ろに小さく添える補足 */
   note?: string;
+  /**
+   * このソース固有の出典。MapLibre が AttributionControl に自動集約するので、
+   * **customAttribution には書かない**（レイヤーを OFF にするとソースごと外れるため、
+   * 表示中だけ出典が出るのが正しい振る舞いになる）。
+   * OSM / Overture は ODbL の常時表示要件があるので main.ts の customAttribution 側。
+   */
+  attribution?: string;
   color: string;
   on: boolean;
   opacity: number;
@@ -43,6 +55,21 @@ export const SOURCES: SourceDef[] = [
     color: "#e8590c",
     on: true,
     opacity: 0.75,
+  },
+  // 食品営業許可・届出データからの純増（ATP 基準マスターに投入した 20,400点と同じもの）。
+  // 比較の主役は Overture vs OSM なので**既定は OFF**。目視確認用に後から足せる形にしてある。
+  // 点数が少ないので PMTiles ではなく GeoJSON（docs/sources/検証_許可データ_*_補完効果.md）。
+  {
+    key: "permit",
+    kind: "geojson",
+    file: "permit_gapfill.json",
+    name: "食品営業許可・届出",
+    note: "純増のみ",
+    attribution:
+      '食品営業許可・届出オープンデータ（<a href="https://ifas.mhlw.go.jp/faspub/" target="_blank" rel="noopener">厚生労働省 食品衛生申請等システム</a>／各自治体、CC BY 4.0・政府標準利用規約）',
+    color: "#0ca678",
+    on: false,
+    opacity: 0.85,
   },
 ];
 
@@ -88,14 +115,16 @@ export function catIconExpr(spriteId: string): ExpressionSpecification {
  * PMTiles は低ズームで点が間引かれるため実行時カウントできず、事前集計値を持つ。
  * 出典: scripts/compare_sources_by_category.sql（Overture 名寄せ済 / OSM 農水省定義準拠）
  * PMTiles を再生成したら同スクリプトで出し直してここを更新すること。
+ * permit は scripts/build_permit_geojson.py が最後に表示する値
+ * （convenience / drugstore は許可データから入れていないので 0）。
  */
 export const COUNTS: Record<string, Record<SourceKey, number>> = {
-  all: { ovt: 109602, osm: 81380 },
-  super: { ovt: 18521, osm: 20348 },
-  conv: { ovt: 54987, osm: 48676 },
-  drug: { ovt: 7735, osm: 4554 },
-  grocery: { ovt: 20608, osm: 275 },
-  fresh: { ovt: 7751, osm: 7527 },
+  all: { ovt: 109602, osm: 81380, permit: 20400 },
+  super: { ovt: 18521, osm: 20348, permit: 3157 },
+  conv: { ovt: 54987, osm: 48676, permit: 0 },
+  drug: { ovt: 7735, osm: 4554, permit: 0 },
+  grocery: { ovt: 20608, osm: 275, permit: 0 },
+  fresh: { ovt: 7751, osm: 7527, permit: 17243 },
 };
 
 export function countOf(cat: string, src: SourceKey): number {
