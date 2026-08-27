@@ -51,11 +51,14 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 | | 件数 | 位置づけ |
 |---|---:|---|
 | `data/food_store_master.parquet` | 102,984 | Phase1（Overture 主・OSM 補完）。**公開マスターの実体** |
-| `data/food_store_master_atp_based.parquet` | 119,092 | **ATP 基準**（2026-08-26 追加。`scripts/build_atp_based_master.py`）。座標の出所を店の公表値に揃えた系統。**推計用** |
+| `data/food_store_master_atp_based.parquet` | 119,092 | **ATP 基準の土台**（2026-08-26。`scripts/build_atp_based_master.py`）。座標の出所を店の公表値に揃えた系統。**許可データ突合の基準**でもある |
+| `data/food_store_master_atp_permit.parquet` | 139,492 | **ATP 基準＋許可データ**（2026-08-27。`scripts/merge_permit_gapfill.py`）。**推計用の最新はこれ** |
 
 ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し、3県の500m圏外率は 62.2% → 59.8%、
-比 農水省÷変種A は 0.420 → 0.437（全市区町村で 比≤1 を維持）。設計と結果は
-`docs/master/設計_ATP基準マスター構築.md`。**現行マスターは変更していない**ので、両方が並存する。
+比 農水省÷変種A は 0.420 → 0.437（全市区町村で 比≤1 を維持）。
+さらに**食品営業許可・届出の純増 20,400件（生鮮 17,243 ＋ ⑪ 3,157）を投入**して
+**57.3% / 比 0.456 / 農水省公表値との相関 r 0.448→0.462**（比≤1 は維持）。設計と結果は
+`docs/master/設計_ATP基準マスター構築.md`。**公開マスター（Phase1）は変更していない**ので3系統が並存する。
 
 - **Phase1 マスター構築済み**: 約 102,984 店 / 農水省加重ベースの実質カバー率 93.5%。
 - マスター実体: `data/food_store_master.csv` / `.parquet`（列 `cat`, `src_cat`, `name` 等。
@@ -96,13 +99,14 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
 > #36（マスターのデイリーヤマザキ測地系ズレ）/ #37（OSM のローソン440mズレ）/ #38（47県への拡張）。
 
 1. **自動車利用困難率を外部データで固定**して係数0.42を分解する（絶対推計への唯一の道）。
-2. **fresh_food の補完 → 2026-08-27 に許可データで実測済み**
+2. ~~**fresh_food の補完**~~ → **2026-08-27 に許可データで実測し、ATP 基準に投入済み**
    （`docs/sources/検証_許可データ_生鮮3業種_補完効果.md`）。生鮮3業種（魚介類・食肉・野菜果物 販売業）
-   からの純増は 21,511件で、3県の500m圏外率 62.2%→60.1%、比≤1 維持、
+   からの純増は 17,880件（ATP基準では 17,243件）で、3県の500m圏外率 62.2%→60.1%、比≤1 維持、
    **農水省公表値との相関 r が 0.448→0.460 に改善**。ATP基準＋生鮮＋⑪ なら 57.3%（比 max 0.793 / r 0.462）。
    `python3 scripts/extract_permit_fresh_food.py`（マスターは書き換えない）。
-   残るのは投入の判断と、level 3（町丁目レベル）座標の扱い（`MIN_LEVEL=8` の効果は未測定）。
-3. **許可データ⑪の投入**（issue #26、`docs/sources/検証_許可データ_総合スーパー_補完効果.md`）。
+   `MIN_LEVEL` の既定は 8（level 3 を落としても**指標は完全に同じ**で座標精度だけ上がるため）。
+   **公開マスター（Phase1）にはまだ入れていない**（viewer の PMTiles と `COUNTS` の再生成とセットになるため）。
+3. **許可データ⑪の投入 → ATP 基準には投入済み**（issue #26、`docs/sources/検証_許可データ_総合スーパー_補完効果.md`）。
    届出「⑪ 百貨店、総合スーパー」からの純増は現行マスターに 4,191件・ATP基準に 3,157件で、
    3県の500m圏外率は 62.2%→61.4%（ATP基準 59.8%→59.2%）、比≤1 は全市区町村で維持。
    **ライセンスは再配布可（CC BY / 政府標準利用規約）＝ ATP の自前クロールと違い公開マスターに入れられる**。
@@ -229,6 +233,15 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
   投入の可否は「比 農水省÷変種A が1を超えないこと」と
   **「農水省公表値との相関 r が上がること」**で見る（検証器が両方出す）。
 
+- **⑬ その他の食料・飲料販売業（85,987施設）は使えない**。名称で分けると 81.3% が
+  「その他」でその大半が飲食店・菓子・雑貨（コメダ珈琲・しゃぶ葉・叙々苑・餃子の王将・
+  スターバックス等）。**食料品店は1割程度**で、飲食店の屋号は無限にあるため名称フィルタで
+  分離できない。生鮮3業種（許可業種で捕捉が厚い）とは性格が違う。2026-08-27 に見送り判定。
+
+- **許可データの `geocoding_level` 3（町丁目レベル）は落としてよい**。生鮮で実測したところ、
+  level 3 の 4,268件を落としても**メッシュ指標は完全に同じ**（圏外率 60.1% / 比 0.435 / r 0.460）で、
+  座標精度だけ良くなる（中央値 20m→15m・p90 220m→126m）。`MIN_LEVEL` の既定を 8 にしてある。
+
 - **DuckDB spheroid バグ**: この環境では `ST_Distance_Spheroid` / `ST_DWithin_Spheroid` が `-nan` を返して使えない。距離は等距円筒近似（緯度補正した平面距離）で代替する。
 - **Overture の bbox 抽出は国外を含む**: `data/overture_food_full_jp.parquet`（246,400 件）は日本の bbox 抽出で韓国・ロシア等を含む。日本のみは `country = 'JP'`（234,077 件）で絞る。
 - **pmtiles の間引きは低ズームだけ**。`-r1`（droprate 1）でレート間引きは無効化してあり、
@@ -296,6 +309,19 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
   MIN_LEVEL=8 python3 scripts/extract_permit_fresh_food.py          # 町丁目レベル座標を落とす
   ```
   ⑪ と生鮮は `scripts/permit_gapfill.py` を共有する（抽出→畳み→フィルタ→突合→県別）。
+
+- **許可データをマスターに投入する（3段構え）**。候補は「どのマスターに対して純増か」で変わるので、
+  ②と③には**同じ土台**を渡すこと:
+  ```
+  python3 scripts/build_atp_based_master.py                       # ① 土台
+  FOOD_MASTER=data/food_store_master_atp_based.parquet \
+      OUT_PARQUET=data/permit_fresh_food_candidates_atp.parquet \
+      python3 scripts/extract_permit_fresh_food.py                # ② 候補（生鮮）
+  FOOD_MASTER=data/food_store_master_atp_based.parquet \
+      OUT_PARQUET=data/permit_supermarket_candidates_atp.parquet \
+      python3 scripts/extract_permit_supermarkets.py              # ② 候補（⑪）
+  python3 scripts/merge_permit_gapfill.py                         # ③ → atp_permit.parquet
+  ```
 
 - **検証器の店舗レイヤと出力先は環境変数で差し替えられる**（`FOOD_MASTER` / `OUT_SUFFIX`、
   `compare_atp_with_master.py` は `OUT_CSV`）。既存の検証結果 CSV を実験で上書きしないこと。

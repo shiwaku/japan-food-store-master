@@ -20,7 +20,10 @@ CLAUDE.md「次の一手」2番（fresh_food の補完）の実装。**マスタ
 環境変数:
   FOOD_MASTER     突合するマスター（既定 data/food_store_master.parquet）
   INCLUDE_PACKAGED  1 なら「包装済みのみ」の届出も含める（既定は許可＝未包装のみ）
-  MIN_LEVEL       ジオコーディング精度の足切り。既定 3（元座標＝空欄は常に通す）
+  MIN_LEVEL       ジオコーディング精度の足切り。既定 8（元座標＝空欄は常に通す）。
+                  実測: 3 にすると純増は 21,511 に増えるが**メッシュ指標は 1mm も動かない**
+                  （圏外率 60.1% / 比 0.435 / r 0.460 のまま）。一方で座標精度は
+                  中央値 20m→15m・p90 220m→126m と明確に良くなるので、既定は 8 にしてある。
   OUT_PARQUET / OUT_CSV / RADIUS_M
 """
 import os
@@ -37,7 +40,7 @@ if os.environ.get("INCLUDE_PACKAGED", "0") != "1":
     type_sql += " and not coalesce(business_type ilike '%包装済%', false)"
     label += "・未包装（許可）のみ"
 
-min_level = int(os.environ.get("MIN_LEVEL", "3"))
+min_level = int(os.environ.get("MIN_LEVEL", "8"))
 # 空欄は「自治体が公表した元座標」なので常に通す。数値が入っているのはジオコーディング補完分。
 # 施設単位に畳んだあとの列名は glv（permit_gapfill 側の命名）。
 level_sql = ("glv is null or trim(glv) = '' or try_cast(glv as int) >= {n}".format(n=min_level))
