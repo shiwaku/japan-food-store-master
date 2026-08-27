@@ -95,6 +95,61 @@ fresh_food は ATP がゼロなので、そのまま既存マスター（OSM 由
 正規化せずに突合すると同じ店が「純増」に化ける（seven_eleven の純増 3,415件のうち 1,570件＝46%が既存店）。
 `normalize_brand` / `normalize_brand_sql` を `food_store_rules.py` に置き、突合前に必ず通す。
 
+## 許可データの投入（2026-08-27）
+
+ATP 基準マスターを**土台**にして、食品営業許可・届出データの純増を足した
+`data/food_store_master_atp_permit.parquet`（**139,492件**）を推計用の最新とする。
+ATP が原理的に持たない層（fresh_food は ATP でゼロ、地場スーパーは 46.6% で頭打ち）を、
+再配布可（CC BY 4.0・政府標準利用規約）のデータで埋める。
+
+| cat | 土台（ATP基準） | ＋許可データ | 計 | 実数統計 | 率 |
+|---|---:|---:|---:|---:|---:|
+| convenience | 59,826 | 0 | 59,826 | 56,352 | 106.2% |
+| supermarket | 29,539 | 3,157 | 32,696 | 22,378 | 146.1%※ |
+| fresh_food | 10,068 | **17,243** | **27,311** | 33,960 | **80.4%** |
+| drugstore | 19,659 | 0 | 19,659 | 17,622 | 111.6% |
+| **計** | **119,092** | **20,400** | **139,492** | | |
+
+※ supermarket の分母は 561+581（23,401）に取り直すべき（issue #33）。
+`src_cat` で分解すると本体は不足側にある。→ [検証_supermarket分解と分母の確定.md](検証_supermarket分解と分母の確定.md)
+
+### アクセス困難人口での検証（3県88市区町村）
+
+| 指標 | 現行マスター | ATP基準 | **ATP基準＋許可データ** |
+|---|---:|---:|---:|
+| 変種A 500m圏外人口（65歳以上） | 685,951（62.2%） | 659,090（59.8%） | **631,711（57.3%）** |
+| 変種C 実距離500m | 453,617（41.2%） | 436,473（39.6%） | 409,885（37.2%） |
+| 比 農水省÷変種A | 0.420 | 0.437 | **0.456** |
+| 比の max | 0.768 | 0.793 | 0.793 |
+| 全市区町村で 比 ≤ 1 | 満たす | 満たす | **満たす** |
+| 農水省公表値との相関 r | 0.448 | 0.448 | **0.462** |
+
+**件数を足せば圏外率は必ず下がるので、圏外率の改善だけでは判定材料にならない。**
+相関 r が 0.448 → 0.462 に上がったことが「穴を埋めた」ことの根拠
+（[../sources/検証_許可データ_生鮮3業種_補完効果.md](../sources/検証_許可データ_生鮮3業種_補完効果.md)）。
+
+市区町村別は `検証_アクセス困難人口_市区町村別_ATP許可基準.csv` / カテゴリ感度は
+`検証_アクセス困難人口_カテゴリ感度_ATP許可基準.csv`。感度は
+S1 supermarket のみ 81.9% → S2 +convenience 64.3% → S3 +drugstore 62.1% → S4 全カテゴリ **57.3%** で、
+**fresh_food の寄与が −4.7pt** と最大になった（補完前は −3.3pt）。
+
+### 再現
+
+```
+python3 scripts/build_atp_based_master.py           # ① 土台（突合の基準）
+FOOD_MASTER=data/food_store_master_atp_based.parquet \
+    OUT_PARQUET=data/permit_fresh_food_candidates_atp.parquet \
+    OUT_CSV=docs/sources/検証_許可データ_生鮮3業種_都道府県別_ATP基準.csv \
+    python3 scripts/extract_permit_fresh_food.py    # ② 候補（生鮮）
+FOOD_MASTER=data/food_store_master_atp_based.parquet \
+    OUT_PARQUET=data/permit_supermarket_candidates_atp.parquet \
+    OUT_CSV=docs/sources/検証_許可データ_総合スーパー_都道府県別_ATP基準.csv \
+    python3 scripts/extract_permit_supermarkets.py  # ② 候補（⑪）
+python3 scripts/merge_permit_gapfill.py             # ③ 投入
+```
+
+**候補は「どのマスターに対して純増か」で変わる**ので、②と③には同じ土台を渡すこと。
+
 ## ライセンス
 
 出力の `redistributable` 列で行単位に判別できる。
@@ -104,6 +159,7 @@ fresh_food は ATP がゼロなので、そのまま既存マスター（OSM 由
 | `atp_official_cc0`（ATP 公式ラン14本） | 39,358 | 可（CC-0） |
 | `self_crawl`（自前クロール38本） | 47,005 | **不可**（各社規約） |
 | `overture_osm` | 32,729 | 可 |
+| `permit`（食品営業許可・届出） | 20,400 | 可（CC BY 4.0 / 政府標準利用規約） |
 
 **推計・分析に使うことは制約なし**（取得も解析目的の複製も禁じられていない）。禁じられているのは
 店舗データそのものの再配布なので、公開物に出すときだけ `redistributable` で絞る。
@@ -113,7 +169,7 @@ fresh_food は ATP がゼロなので、そのまま既存マスター（OSM 由
 
 | 課題 | 現状 | issue |
 |---|---|---|
-| supermarket が実数の 132% | ATP は 46.6% しか持たず、地場チェーンは Overture 由来のまま。広義（まいばすけっと等）の過大も未解決 | #33 |
+| supermarket が実数の 132% | **分母の取り方が誤っていた**（2026-08-27 に確定）。`src_cat` で分解すると Overture supermarket 由来はセンサス561+581 の 79.0%＝**不足**で、grocery_store 由来は589系（分母が手元に無い）。→ [検証_supermarket分解と分母の確定.md](検証_supermarket分解と分母の確定.md) | #33 |
 | convenience が 106.2% | 置き換え後も残る偽陽性の精査が要る | #34 |
 | fresh_food 29.6% | ATP は原理的に埋められない。許可データでの補完 | #26 |
 | 自前クロール28チェーンの規約未調査 | 2026-08-25 クロール分 | #35 |
