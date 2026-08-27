@@ -188,3 +188,36 @@ def strip_org_words_sql(col: str) -> str:
 def match_key_sql(col: str) -> str:
     """ソース間で店名を突合するためのキー（法人語を落として記号・空白を除去）。"""
     return normalize_brand_sql(strip_org_words_sql(col))
+
+# ---- Overture grocery_store の浄化ルール ----
+#
+# Overture の `grocery_store` は「各種食料品店」で、小規模食料品店を広く含む一方、
+# 飲食サービス系（カフェ・食堂）と雑貨店が混ざる。マスター構築（build_food_store_master.py）で
+# supermarket に統合する前に落とすのがこのルール。**分解検証（decompose_supermarket.py）と
+# 共有すること**（片方だけ直すと「マスターに入っている件数」と「検証が数える件数」がズレる）。
+GROCERY_NOISE_ALT = [
+    "restaurant", "cafe", "bar", "eat_and_drink", "japanese_restaurant",
+    "smoothie_juice_bar", "food_beverage_service_distribution",
+    "home_goods_store", "shopping",
+]
+GROCERY_FOOD_ALT = [
+    "supermarket", "grocery_store", "health_food_store", "bakery", "liquor_store",
+    "delicatessen", "specialty_grocery_store", "fishmonger",
+    "fruits_and_vegetables", "butcher", "convenience_store", "farm",
+]
+GROCERY_NAME_NOISE = [
+    "カフェ", "coffee", "cafe", "食堂", "ZAKKA", "雑貨", "セレクトショップ", "レストラン",
+]
+
+
+def grocery_noise_sql(name_col: str = "name", alt_col: str = "category_alt") -> str:
+    """grocery_store のうち落とすべきノイズ（飲食サービス系・雑貨）の SQL 述語。
+
+    「食物 retail の alt を持たず飲食/雑貨の alt だけを持つ」または「名称がノイズ」。
+    """
+    noise = "[" + ", ".join(f"'{w}'" for w in GROCERY_NOISE_ALT) + "]"
+    food = "[" + ", ".join(f"'{w}'" for w in GROCERY_FOOD_ALT) + "]"
+    name_noise = "(" + " or ".join(
+        f"{name_col} ilike '%{w}%'" for w in GROCERY_NAME_NOISE) + ")"
+    return (f"(({alt_col} is not null and len(list_intersect({alt_col},{noise}))>0"
+            f" and len(list_intersect({alt_col},{food}))=0) or {name_noise})")
