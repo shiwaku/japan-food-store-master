@@ -357,6 +357,20 @@ ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し�
   ```
   座標がずれているチェーンは住所から取り直す:
   `python3 scripts/geocode_atp_geojson.py --replace data/atp/<chain>.geojson`
+- **ATP の網羅率を QGIS で図化する（県別カバー率の GeoParquet）**:
+  ```
+  python scripts/compare_atp_only_with_stats.py       # ① 県別 CSV を現行データで作り直す
+  python scripts/build_atp_coverage_geoparquet.py     # ② → data/atp_coverage_by_pref.parquet
+  ```
+  出力は **GeoParquet 1.1.0 / EPSG:4326 / 47ポリゴン**で、QGIS 3.34 の GDAL Parquet ドライバで
+  そのまま開ける。**wide 形式**（1県1行・カテゴリは列 `super_rate` `drug_rate` …）なので、
+  1回読んで属性を切り替えるだけで4カテゴリを塗り分けられる。列は cat ごとに
+  `_atp` / `_real`（実数統計）/ `_master` / `_rate` / `_mrate` / `_gap`（＝ATP−実数。負が不足）。
+  スタイルは `data/atp_coverage_by_pref.qml`（`super_rate` の6段階＋県名ラベル。**qml は data/ で
+  唯一追跡されているファイル種**なので `git add -f` が要る）。他カテゴリを見るときは QGIS 側で
+  段階区分の属性を差し替える。**drug_rate は 74〜165% で 100% をまたぐので、
+  段階区分ではなく 100% を中心にした発散配色にすること**（不足と超過が同じ色になる）。
+
 - **supermarket の分解（分母の確定。issue #33）**:
   ```
   python3 scripts/build_food_store_master.py     # src_cat 列つきで再生成（件数は 102,984 のまま不変）
