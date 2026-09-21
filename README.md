@@ -53,6 +53,45 @@
 設計と検証結果は [docs/master/設計_ATP基準マスター構築.md](docs/master/設計_ATP基準マスター構築.md)。
 **自前クロール分は再配布できない**ため、公開物に出すときは出力の `redistributable` 列で絞る必要がある。
 
+## ★ 公開できるマスター（2026-09-21）
+
+ATP 基準マスターは**自前クロール38チェーン 47,005店（38%）が再配布不可**で、地図タイルや
+診断サービスのような公開物に載せられない（推計に使うだけなら制約は無い）。
+そこで **ATP を一切使わず Overture Places ＋ 食品営業許可オープンデータだけ**で組み直した。
+
+| レイヤ | 店舗数 | 地方部 r | 地方部 圏外率 | 公開 |
+|---|---:|---:|---:|---|
+| ATP基準＋許可⑪（推計用の最良） | 122,249 | 0.2472 | 56.32% | **不可** |
+| `food_store_master_public.parquet`（Overture＋OSM＋許可） | 130,345 | 0.2440 | 55.70% | ODbL継承あり |
+| **`food_store_master_public_noosm.parquet`（Overture＋許可）** | **124,970** | **0.2490** | **56.50%** | **可・継承なし** |
+
+**47県・地方部の指標は ATP 基準とほぼ同等。** OSM 由来は fresh_food 5,384店だけなので、
+外しても指標は落ちず（むしろ地方部は良い）、**ODbL の継承を避けられる**。
+
+許可データの寄与は**ドラッグストアで決定的**で、ATP を正解にした再現率が 34.1% → **75.3%**、
+全体で 67.4% → **80.4%** に上がる。**ATP は再配布できないが検証に使う制約は無い**ので、
+構成要素ではなく**正解データ**に回す（`scripts/eval_master_against_atp.py`）。
+
+行ごとに `src` / `src_cat` / `business_type` / `sources` / `licenses` / `license` / `attribution` を持つので、
+**店舗単位で出所とライセンスを辿れる**（公開時の出典表示に使う）。
+
+```bash
+python scripts/build_jff_only_master.py     # 許可データに店名チェーン判定で cat を振る
+python scripts/build_public_master.py       # → data/food_store_master_public.parquet
+OSM=0 OUT_PARQUET=data/food_store_master_public_noosm.parquet     python scripts/build_public_master.py   # ODbL 無し版（公開物はこれ）
+bash scripts/build_public_master_pmtiles.sh     # 店舗点の PMTiles（18.5MB）
+python scripts/eval_master_against_atp.py   # ATP を正解にした突合
+```
+
+**⚠ 許可データの cat を業種コードで振ってはいけない。** コンビニは店内調理があるため
+`① 飲食店営業` で届け出ているのが普通で、`⑩ コンビニエンスストア` だけで拾うと大手3社の
+網羅率が 28.5% にしかならない（店名でチェーン照合すれば 66.7%）。
+`⑪ 百貨店、総合スーパー` も supermarket 49.9% / drugstore 34.1% の混在。
+→ [docs/sources/検証_公開可能マスター_Overture_OSM_許可.md](docs/sources/検証_公開可能マスター_Overture_OSM_許可.md)
+／ [docs/sources/検証_JFF単独レイヤ_店舗レイヤ適性.md](docs/sources/検証_JFF単独レイヤ_店舗レイヤ適性.md)
+
+この公開版を使った地図が **https://shiwaku.github.io/japan-food-access-analysis/**。
+
 ## 構成
 
 ```
