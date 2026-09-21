@@ -83,7 +83,7 @@ def main():
     nn = match_key_sql("name")
     # 座標があり、町丁目代表点（level 3）より粗いものは落とす。
     con.execute("""create table raw as
-      select prefecture, city, name, address, business_type,
+      select prefecture, city, name, address, business_type, sources, licenses,
              try_cast(lat as double) lat, try_cast(lng as double) lng,
              try_cast(geocoding_level as int) glv, {nn} nname
       from read_csv('{csv}', header=true, all_varchar=true)
@@ -99,6 +99,8 @@ def main():
       select prefecture, city, nname, address,
              min(name) as "name", min(lat) lat, min(lng) lng, min(glv) glv,
              string_agg(distinct business_type, '|') bts,
+             string_agg(distinct sources, '|') sources,
+             string_agg(distinct licenses, '|') licenses,
              prefecture || '|' || city || '|' || nname || '|' || address fkey
       from raw group by 1,2,3,4""")
     # 同名が 50m 以内にある行（住所表記だけ違う同一施設）を畳む。permit_gapfill と同じ規則。
@@ -148,7 +150,9 @@ def main():
     con.execute(f"""copy (
       select row_number() over (order by prefecture, city, nname) store_id,
              cat, name, prefecture, city, bts business_type,
-             'japan-food-facilities' src, true redistributable, lat, lng
+             'permit' src, 'japan-food-facilities' src_detail,
+             sources, licenses, glv geocoding_level,
+             true redistributable, lat, lng
       from cls where cat is not null
     ) to '{OUT}' (format parquet)""")
     n = con.execute(f"select count(*) from '{OUT}'").fetchone()[0]

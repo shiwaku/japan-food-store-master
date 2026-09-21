@@ -59,7 +59,9 @@ viewer/      OSM vs Overture 比較ビューア（Vite + TypeScript + MapLibre G
 | `data/food_store_master.parquet` | 102,984 | Phase1（Overture 主・OSM 補完）。**公開マスターの実体** |
 | `data/food_store_master_atp_based.parquet` | 119,092 | **ATP 基準の土台**（2026-08-26。`scripts/build_atp_based_master.py`）。座標の出所を店の公表値に揃えた系統。**許可データ突合の基準**でもある |
 | `data/food_store_master_atp_permit.parquet` | 139,492 | **ATP 基準＋許可データ**（2026-08-27。`scripts/merge_permit_gapfill.py`）。⚠ **生鮮を含むため地方部の指標が悪い**（issue #46）。推計には下の ⑪ のみ版を推奨 |
-| `data/food_store_master_atp_super.parquet` | 122,249 | **ATP 基準＋許可⑪ のみ**（`PERMIT_FRESH=/nonexistent` で生成）。**47県・地方部で最良＝推計用はこれ**（r 0.199・比>1 は土台と同数） |
+| `data/food_store_master_atp_super.parquet` | 122,249 | **ATP 基準＋許可⑪ のみ**（`PERMIT_FRESH=/nonexistent` で生成）。**47県・地方部で最良＝推計用はこれ**（r 0.199・比>1 は土台と同数）。⚠ **自前クロールを含むので公開物には使えない** |
+| `data/food_store_master_public.parquet` | 130,345 | **公開できる版**（Overture＋OSM＋食品営業許可・2026-09-21）。ATP を使わない。47県・地方部で r 0.244 / 圏外率 55.7% ＝ ATP基準とほぼ同等。全行再配布可だが **OSM 由来 5,384件に ODbL 継承**が掛かる |
+| `data/food_store_master_public_noosm.parquet` | 124,970 | **同・ODbL 無し版**（`OSM=0`）。**地方部はむしろ良い**（r 0.249 / 比>1 19件）。**公開物はこれを使う** |
 
 ATP 基準は現行より drugstore が 42.5% → 111.6% と大きく改善し、3県の500m圏外率は 62.2% → 59.8%、
 比 農水省÷変種A は 0.420 → 0.437（3県の全市区町村で 比≤1 を維持）。
